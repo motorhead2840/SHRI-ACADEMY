@@ -18,3 +18,13 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+AWS_BLOCKCHAIN_NODE_URL = ""
+AWS_REGION = "us-east-1"
+ETHEREUM_NETWORK = "sepolia"
+SARA_CONTRACT_ADDRESS = ""
+VITE_API_URL = ""
+VITE_SARA_CONTRACT_ADDRESS = ""

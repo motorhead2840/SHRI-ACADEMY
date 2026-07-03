@@ -5,12 +5,13 @@ export function Navbar() {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const links = [
+  const links: { href: string; label: string; accent?: boolean }[] = [
     { href: "/", label: "Home" },
     { href: "/architecture", label: "Architecture" },
     { href: "/pedagogy", label: "Pedagogy" },
     { href: "/blueprint", label: "Blueprint" },
     { href: "/pitch", label: "Pitch" },
+    { href: "/token", label: "SARA Token", accent: true },
   ];
 
   const isLoginPage = location.startsWith("/login");
@@ -36,7 +37,11 @@ export function Navbar() {
                 key={link.href}
                 href={link.href}
                 className={`text-sm font-semibold transition-colors duration-200 ${
-                  location === link.href
+                  link.accent
+                    ? location === link.href
+                      ? "text-violet-600 font-bold"
+                      : "text-violet-500 hover:text-violet-700"
+                    : location === link.href
                     ? "text-amber-500"
                     : "text-stone-500 hover:text-stone-800"
                 }`}

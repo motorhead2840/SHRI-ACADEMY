@@ -14,6 +14,7 @@ import Login from '@/pages/Login';
 import LoginSchool from '@/pages/LoginSchool';
 import LoginParent from '@/pages/LoginParent';
 import LoginStudent from '@/pages/LoginStudent';
+import Token from '@/pages/Token';
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/login/school" component={LoginSchool} />
       <Route path="/login/parent" component={LoginParent} />
       <Route path="/login/student" component={LoginStudent} />
+      <Route path="/token" component={Token} />
       <Route component={NotFound} />
     </Switch>
   );
