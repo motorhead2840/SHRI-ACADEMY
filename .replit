@@ -22,9 +22,9 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
-AWS_BLOCKCHAIN_NODE_URL = ""
+AWS_BLOCKCHAIN_NODE_URL = "https://nd-5q7q2xbykzhafpbrivluwrd5vm.ethereum.managedblockchain.us-east-1.amazonaws.com"
 AWS_REGION = "us-east-1"
 ETHEREUM_NETWORK = "sepolia"
-SARA_CONTRACT_ADDRESS = ""
-VITE_API_URL = ""
-VITE_SARA_CONTRACT_ADDRESS = ""
+SARA_CONTRACT_ADDRESS = "0xd9145CCE52D386f254917e481eB44e9943F39138"
+VITE_API_URL = "https://37517c62-6731-493e-bb90-4794d0b94647-00-3yya0pw3yi8j.pike.replit.dev/api"
+VITE_SARA_CONTRACT_ADDRESS = "0xd9145CCE52D386f254917e481eB44e9943F39138"

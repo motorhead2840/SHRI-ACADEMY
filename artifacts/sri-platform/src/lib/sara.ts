@@ -85,7 +85,7 @@ export function shortenAddress(addr: string, chars = 4): string {
 // ─── API helpers (server-backed AWS queries) ──────────────────────────────────
 
 export async function fetchTokenInfo() {
-  const url = `${API_BASE}/api/blockchain/token`;
+  const url = `${API_BASE}/blockchain/token`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Token info fetch failed: ${res.status}`);
   return res.json() as Promise<{
@@ -100,7 +100,7 @@ export async function fetchTokenInfo() {
 }
 
 export async function fetchBalance(address: string) {
-  const url = `${API_BASE}/api/blockchain/balance/${address}`;
+  const url = `${API_BASE}/blockchain/balance/${address}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Balance fetch failed: ${res.status}`);
   return res.json() as Promise<{
