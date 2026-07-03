@@ -10,11 +10,11 @@
 
 import { Router } from "express";
 import {
-  getSaraBalance,
   listSaraHolders,
   listTransactions,
   proxyJsonRpc,
   SEPOLIA_NETWORK,
+  formatUnits,
   type JsonRpcRequest,
 } from "../lib/awsBlockchain.js";
 
@@ -82,18 +82,45 @@ router.get("/token", async (_req, res) => {
 });
 
 // ─── Balance by address ───────────────────────────────────────────────────────
+// Uses eth_call directly (balanceOf selector 0x70a08231) instead of MBQ SDK,
+// because MBQ only indexes tokens it has ingested — custom ERC-20s return 404.
 
 router.get("/balance/:address", async (req, res) => {
   try {
     const { address } = req.params;
+    const contractAddress = process.env.SARA_CONTRACT_ADDRESS;
 
     if (!isValidAddress(address)) {
       res.status(400).json({ error: "Invalid Ethereum address" });
       return;
     }
+    if (!contractAddress) {
+      res.status(503).json({ error: "SARA_CONTRACT_ADDRESS not configured" });
+      return;
+    }
 
-    const balance = await getSaraBalance(address);
-    res.json(balance);
+    // ABI-encode balanceOf(address): selector + address left-padded to 32 bytes
+    const paddedAddr = address.slice(2).padStart(64, "0");
+    const data = "0x70a08231" + paddedAddr;
+
+    const response = await proxyJsonRpc({
+      jsonrpc: "2.0",
+      method: "eth_call",
+      params: [{ to: contractAddress, data }, "latest"],
+      id: 1,
+    });
+
+    if (response.error) {
+      res.status(502).json({ error: response.error.message });
+      return;
+    }
+
+    const rawWei = BigInt((response.result as string) ?? "0x0");
+    res.json({
+      address,
+      rawBalance: rawWei.toString(),
+      formattedBalance: formatUnits(rawWei, 18),
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ error: msg });

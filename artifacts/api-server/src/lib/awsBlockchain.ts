@@ -235,7 +235,7 @@ export async function proxyJsonRpc(body: JsonRpcRequest): Promise<JsonRpcRespons
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 
-function formatUnits(value: bigint, decimals: number): string {
+export function formatUnits(value: bigint, decimals: number): string {
   const divisor = 10n ** BigInt(decimals);
   const intPart = value / divisor;
   const fracPart = value % divisor;
