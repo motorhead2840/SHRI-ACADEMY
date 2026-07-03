@@ -1,16 +1,12 @@
 /**
- * Abhaya Gate Dashboard
- * Live interface for the V3.0 Thermodynamic Phase-Cancellation Safety Middleware.
- * Visualises Circuit A (Resonant Baseline) and Circuit B (Thermodynamic Override)
- * in real time against user-submitted payloads or simulated Maha-Pralaya stress runs.
+ * Abhaya Gate — V3.0 Thermodynamic Phase-Cancellation Safety Middleware
+ * Visual language: warm cream / amber manuscript — matches site brand.
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const API = import.meta.env.VITE_API_URL ?? "";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AbhayaResult {
   passed: boolean;
@@ -41,128 +37,143 @@ interface SimCycle {
   phase_cancelled: boolean;
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 
-function GaugeBar({ value, max = 1, label, color, glow = false }: {
-  value: number; max?: number; label: string; color: string; glow?: boolean;
+function MetricBar({ value, max = 1, label, note }: {
+  value: number; max?: number; label: string; note?: string;
 }) {
   const pct = Math.min(100, (value / max) * 100);
+  const color = pct > 75 ? "#10B981" : pct > 40 ? "#F59E0B" : "#EF4444";
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs font-mono">
-        <span className="text-stone-400 uppercase tracking-wider">{label}</span>
-        <span style={{ color }} className="font-bold">{value.toFixed(4)}</span>
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-baseline">
+        <span className="font-sans text-xs font-semibold uppercase tracking-widest text-stone-500">{label}</span>
+        <span className="font-mono text-sm font-bold" style={{ color }}>{value.toFixed(4)}</span>
       </div>
-      <div className="h-2 bg-stone-800 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-stone-200 rounded-full overflow-hidden">
         <motion.div
           className="h-full rounded-full"
-          style={{ background: color, boxShadow: glow ? `0 0 8px ${color}` : "none" }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function OmegaMeter({ stability }: { stability: number }) {
-  const angle = (stability * 180) - 90; // -90° (0) to +90° (1)
-  const color = stability >= 0.72 ? "#10B981" : stability >= 0.45 ? "#F59E0B" : "#EF4444";
-
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative w-32 h-16 overflow-hidden">
-        {/* Semicircle arc */}
-        <svg viewBox="0 0 128 64" className="w-full h-full">
-          <path d="M 8 64 A 56 56 0 0 1 120 64" fill="none" stroke="#1f2937" strokeWidth="12" strokeLinecap="round" />
-          <path d="M 8 64 A 56 56 0 0 1 120 64" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
-            strokeDasharray={`${stability * 175} 175`} opacity="0.9" />
-        </svg>
-        {/* Needle */}
-        <motion.div
-          className="absolute bottom-0 left-1/2 origin-bottom w-0.5 h-12 -ml-px rounded-full"
           style={{ background: color }}
-          animate={{ rotate: angle }}
-          transition={{ type: "spring", stiffness: 80, damping: 15 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
         />
       </div>
-      <div className="text-center">
-        <p className="text-2xl font-extrabold font-mono" style={{ color }}>
-          Ξ {stability.toFixed(3)}
-        </p>
-        <p className="text-xs text-stone-500 uppercase tracking-wider">
-          {stability >= 0.72 ? "RESONANT · STABLE" : stability >= 0.45 ? "DAMPING · ACTIVE" : "BARREN PLATEAU · OVERRIDE"}
-        </p>
-      </div>
+      {note && <p className="text-xs text-stone-400 font-mono">{note}</p>}
     </div>
   );
 }
 
-function CircuitBadge({ active, label, value }: { active: boolean; label: string; value: number }) {
+function StabilityArc({ xi }: { xi: number }) {
+  const pct = Math.max(0, 1 - xi);
+  const color = pct >= 0.72 ? "#10B981" : pct >= 0.45 ? "#F59E0B" : "#EF4444";
+  const r = 52;
+  const circ = 2 * Math.PI * r;
+  const dash = pct * circ * 0.75; // 270° arc
+
   return (
-    <div className={`rounded-xl border p-4 transition-all duration-500 ${
-      active
-        ? "border-violet-500 bg-violet-950/50 shadow-lg shadow-violet-900/30"
-        : "border-stone-700 bg-stone-900/50"
+    <div className="flex flex-col items-center gap-3">
+      <svg width="140" height="110" viewBox="0 0 140 110">
+        {/* Track */}
+        <circle cx="70" cy="80" r={r} fill="none" stroke="#E8E0D0" strokeWidth="8"
+          strokeDasharray={`${circ * 0.75} ${circ}`} strokeDashoffset={circ * 0.375}
+          strokeLinecap="round" transform="rotate(135 70 80)" />
+        {/* Value arc */}
+        <motion.circle cx="70" cy="80" r={r} fill="none" stroke={color} strokeWidth="8"
+          strokeDasharray={`${dash} ${circ}`} strokeDashoffset={circ * 0.375}
+          strokeLinecap="round" transform="rotate(135 70 80)"
+          animate={{ strokeDasharray: `${dash} ${circ}` }}
+          transition={{ duration: 0.6, ease: "easeOut" }} />
+        <text x="70" y="72" textAnchor="middle" className="font-mono" fontSize="22"
+          fontWeight="800" fill={color}>{pct.toFixed(2)}</text>
+        <text x="70" y="90" textAnchor="middle" fontSize="9" fill="#78716C" letterSpacing="2">STABILITY Ξ</text>
+      </svg>
+      <span className={`font-mono text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full border ${
+        pct >= 0.72
+          ? "text-emerald-700 border-emerald-300 bg-emerald-50"
+          : pct >= 0.45
+          ? "text-amber-700 border-amber-300 bg-amber-50"
+          : "text-red-700 border-red-300 bg-red-50"
+      }`}>
+        {pct >= 0.72 ? "Resonant · Stable" : pct >= 0.45 ? "Damping Active" : "Override Engaged"}
+      </span>
+    </div>
+  );
+}
+
+function CircuitPanel({ label, circuit, value, active }: {
+  label: string; circuit: "A" | "B"; value: number; active: boolean;
+}) {
+  return (
+    <div className={`border p-5 transition-all duration-500 ${
+      circuit === "A"
+        ? active ? "border-primary/60 bg-primary/5" : "border-primary/20 bg-card"
+        : active ? "border-accent/60 bg-accent/5 shadow-[0_0_20px_rgba(16,185,129,0.08)]" : "border-stone-200 bg-card"
     }`}>
-      <div className="flex items-center gap-2 mb-2">
-        <div className={`w-2 h-2 rounded-full ${active ? "bg-violet-400 animate-pulse" : "bg-stone-600"}`} />
-        <span className="text-xs font-bold uppercase tracking-widest text-stone-400">{label}</span>
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`w-2 h-2 rounded-full transition-all ${
+          active ? circuit === "A" ? "bg-primary animate-pulse" : "bg-accent animate-pulse" : "bg-stone-300"
+        }`} />
+        <span className="font-mono text-xs font-bold uppercase tracking-widest text-stone-500">
+          Circuit {circuit} · {label}
+        </span>
       </div>
-      <p className="text-xl font-extrabold font-mono" style={{ color: active ? "#A78BFA" : "#6B7280" }}>
-        {value.toFixed(3)}
+      <p className={`font-mono text-2xl font-extrabold ${
+        active ? circuit === "A" ? "text-primary" : "text-accent" : "text-stone-400"
+      }`}>
+        {value.toFixed(4)}
+      </p>
+      <p className="font-sans text-xs text-stone-400 mt-1">
+        {circuit === "A" ? "λ₀·e^(-κ(1-Ξ))" : "Λmax·σ(α·σsat²+θcrit)/Var(∇)"}
       </p>
     </div>
   );
 }
 
 function SimChart({ data }: { data: SimCycle[] }) {
-  if (data.length === 0) return null;
-  const maxChi = Math.max(...data.map(d => d.chi_v3), 1);
-  const w = 100 / data.length;
+  if (!data.length) return null;
+  const maxChi = Math.max(...data.map(d => d.chi_v3), 0.001);
 
   return (
-    <div className="space-y-3">
-      {/* χv3 bar chart */}
-      <p className="text-xs text-stone-500 uppercase tracking-wider">χv3 Damping Force per Cycle</p>
-      <div className="flex items-end gap-px h-20 bg-stone-900 rounded-xl p-2 overflow-hidden">
-        {data.map((d, i) => (
-          <motion.div
-            key={i}
-            className="flex-1 rounded-sm"
-            style={{
-              background: d.circuit_b_active ? "#7C3AED" : "#3B82F6",
-              opacity: 0.8,
-            }}
-            initial={{ height: 0 }}
-            animate={{ height: `${(d.chi_v3 / maxChi) * 100}%` }}
-            transition={{ delay: i * 0.01 }}
-          />
-        ))}
+    <div className="space-y-4">
+      <div>
+        <p className="font-sans text-xs font-semibold uppercase tracking-widest text-stone-400 mb-2">
+          χv3 Damping Force · per cycle
+        </p>
+        <div className="flex items-end gap-px h-24 bg-muted/40 border border-border px-2 py-2 overflow-hidden">
+          {data.map((d, i) => (
+            <motion.div key={i} className="flex-1 min-w-px rounded-t-sm"
+              style={{ background: d.circuit_b_active ? "#10B981" : "#F59E0B", opacity: 0.75 }}
+              initial={{ height: 0 }} animate={{ height: `${(d.chi_v3 / maxChi) * 100}%` }}
+              transition={{ delay: i * 0.008 }} />
+          ))}
+        </div>
       </div>
-      {/* Free energy line */}
-      <p className="text-xs text-stone-500 uppercase tracking-wider mt-2">Stability Ξ per Cycle</p>
-      <div className="relative h-16 bg-stone-900 rounded-xl p-2 overflow-hidden">
-        <svg viewBox={`0 0 ${data.length} 1`} preserveAspectRatio="none" className="w-full h-full">
-          <polyline
-            points={data.map((d, i) => `${i},${1 - d.stability}`).join(" ")}
-            fill="none"
-            stroke="#10B981"
-            strokeWidth="0.05"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
+      <div>
+        <p className="font-sans text-xs font-semibold uppercase tracking-widest text-stone-400 mb-2">
+          Stability Ξ · convergence curve
+        </p>
+        <div className="relative h-16 bg-muted/40 border border-border px-2 py-2 overflow-hidden">
+          <svg viewBox={`0 0 ${data.length} 1`} preserveAspectRatio="none" className="w-full h-full">
+            <polyline
+              points={data.map((d, i) => `${i},${1 - d.stability}`).join(" ")}
+              fill="none" stroke="#10B981" strokeWidth="0.06" vectorEffect="non-scaling-stroke" />
+            <line x1="0" y1={1 - 0.72} x2={data.length} y2={1 - 0.72}
+              stroke="#F59E0B" strokeWidth="0.03" strokeDasharray="0.4 0.4" vectorEffect="non-scaling-stroke" />
+          </svg>
+        </div>
+        <p className="text-xs font-mono text-stone-400 mt-1">
+          <span className="inline-block w-4 h-px bg-amber-400 mr-1 align-middle" /> threshold Ξ=0.72
+        </p>
       </div>
-      <div className="flex gap-4 text-xs text-stone-500">
-        <span className="flex items-center gap-1"><span className="w-3 h-2 bg-blue-500 rounded-sm inline-block" /> Circuit A</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-2 bg-violet-600 rounded-sm inline-block" /> Circuit B Override</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-500 inline-block" /> Stability Ξ</span>
+      <div className="flex gap-4 text-xs font-mono text-stone-500">
+        <span><span className="inline-block w-3 h-2 bg-amber-400 rounded-sm mr-1" />Circuit A</span>
+        <span><span className="inline-block w-3 h-2 bg-emerald-500 rounded-sm mr-1" />Circuit B Override</span>
       </div>
     </div>
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function Abhaya() {
   const [tab, setTab] = useState<"text" | "signal" | "simulate">("text");
@@ -176,33 +187,25 @@ export default function Abhaya() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const analyze = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const run = useCallback(async () => {
+    setLoading(true); setError("");
     try {
       if (tab === "text") {
         const r = await fetch(`${API}/abhaya/analyze/text`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: textInput || "The SRI manifold approaches zero entropy.", threshold: 0.72 }),
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: textInput || "The SRI manifold approaches zero entropy through contemplative resonance.", threshold: 0.72 }),
         });
-        const d = await r.json();
-        setResult(d.result);
-        setSimData([]);
+        const d = await r.json(); setResult(d.result); setSimData([]);
       } else if (tab === "signal") {
         const signal = signalInput.split(",").map(s => parseFloat(s.trim())).filter(isFinite);
         const r = await fetch(`${API}/abhaya/stabilize`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ signal, threshold: 0.72 }),
         });
-        const d = await r.json();
-        setResult(d.result);
-        setSimData([]);
+        const d = await r.json(); setResult(d.result); setSimData([]);
       } else {
         const r = await fetch(`${API}/abhaya/simulate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cycles: simCycles, noise_level: simNoise }),
         });
         const d = await r.json();
@@ -210,193 +213,188 @@ export default function Abhaya() {
         setSimSummary(d.summary ?? null);
         if (d.telemetry?.length) setResult(d.telemetry[d.telemetry.length - 1] as AbhayaResult);
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Request failed");
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setError(e instanceof Error ? e.message : "Request failed"); }
+    finally { setLoading(false); }
   }, [tab, textInput, signalInput, simCycles, simNoise]);
 
   return (
-    <div className="min-h-screen bg-[#050a14] text-white">
+    <div className="max-w-5xl mx-auto px-6 py-24">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
 
-      {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#050a14] via-[#0a0f1e] to-[#0d0520] pt-24 pb-12 px-6 border-b border-violet-900/30">
-        <div className="absolute inset-0 pointer-events-none">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="absolute rounded-full border border-violet-500/10 animate-pulse"
-              style={{ width: `${(i + 1) * 280}px`, height: `${(i + 1) * 280}px`,
-                top: "50%", left: "50%", transform: "translate(-50%,-50%)", animationDelay: `${i * 0.8}s` }} />
-          ))}
-        </div>
-
-        <div className="relative z-10 max-w-4xl mx-auto">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-lg">
-              ⬡
-            </div>
-            <span className="text-xs font-bold uppercase tracking-widest text-violet-400 border border-violet-800 rounded-full px-3 py-1 bg-violet-950/50">
-              Abhaya Gate · V3.0 · Thermodynamic Phase Cancellation
-            </span>
+        {/* ── Hero ─────────────────────────────────────────────────────────── */}
+        <div className="mb-20 text-center">
+          <div className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-accent border border-accent/30 bg-accent/5 px-4 py-1.5 mb-8">
+            Patent Filing Blueprint · V3.0 · Thermodynamic Phase Cancellation
           </div>
-
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-3">
-            <span className="text-white">Abhaya</span>{" "}
-            <span className="bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent">Safety Middleware</span>
+          <h1 className="font-serif text-6xl text-foreground mb-6">
+            The <span className="text-primary">Abhaya</span> Gate
           </h1>
-          <p className="text-stone-400 text-lg max-w-2xl leading-relaxed">
-            The <strong className="text-violet-300">Fearless Damping</strong> engine — two decoupled thermodynamic circuits
-            that phase-cancel stochastic ξ-flux via conjugate destructive interference, forcing the manifold
-            out of Barren Plateaus into zero-entropy resonance.
+          <p className="font-sans text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            <em>Fearless Damping</em> — two decoupled thermodynamic circuits that phase-cancel
+            stochastic ξ-flux via conjugate destructive interference, forcing the manifold out
+            of Barren Plateaus into zero-entropy resonance.
           </p>
+        </div>
 
-          {/* Equation display */}
-          <div className="mt-6 inline-block bg-black/40 border border-violet-900/50 rounded-xl px-5 py-3 font-mono text-sm text-violet-200">
-            χv3(Ξ, ∇, σ) ={" "}
-            <span className="text-blue-400">λ₀·e<sup>−κ(1−Ξ)</sup></span>
-            {" "}+{" "}
-            <span className="text-violet-400">Λmax·(1/Var(∇)) / (1+e<sup>−ασsat²−θcrit</sup>)</span>
+        {/* ── Equation panel ───────────────────────────────────────────────── */}
+        <div className="bg-[#0B0F2E] border border-accent/30 p-8 md:p-12 mb-16 relative shadow-[0_0_50px_rgba(79,172,254,0.08)]">
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-primary to-accent" />
+          <div className="font-mono text-xl md:text-2xl text-[#E8C66A] overflow-x-auto whitespace-nowrap pb-2 mb-6">
+            χv3(Ξ, ∇, σ) = λ₀·e<sup>−κ(1−Ξ)</sup> + Λmax · (1/Var(∇)) · σ(α·σsat² + θcrit)
+          </div>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 font-mono text-sm">
+            <span className="text-primary">Circuit A: Resonant Baseline — entropy cooling</span>
+            <span className="text-accent">Circuit B: Thermodynamic Override — sigmoid flood</span>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
-
-        {/* ── Input panel ───────────────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-[#0d1117] border border-stone-800 rounded-2xl overflow-hidden">
-          <div className="flex border-b border-stone-800">
+        {/* ── Input Panel ──────────────────────────────────────────────────── */}
+        <div className="bg-card border border-primary/15 mb-10">
+          {/* Tabs */}
+          <div className="flex border-b border-border">
             {(["text", "signal", "simulate"] as const).map(t => (
               <button key={t} onClick={() => setTab(t)}
-                className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-colors ${
-                  tab === t ? "bg-violet-950/50 text-violet-300 border-b-2 border-violet-500" : "text-stone-500 hover:text-stone-300"
+                className={`flex-1 py-3.5 font-sans text-sm font-bold uppercase tracking-widest transition-colors ${
+                  tab === t
+                    ? "text-primary border-b-2 border-primary bg-primary/5"
+                    : "text-stone-400 hover:text-stone-600"
                 }`}>
-                {t === "text" ? "Text Analysis" : t === "signal" ? "Signal Vector" : "Maha-Pralaya Sim"}
+                {t === "text" ? "Text Analysis" : t === "signal" ? "Signal Vector" : "Maha-Pralaya"}
               </button>
             ))}
           </div>
 
-          <div className="p-6 space-y-4">
+          <div className="p-8 space-y-5">
             {tab === "text" && (
-              <textarea
-                value={textInput}
-                onChange={e => setTextInput(e.target.value)}
-                placeholder="Enter any text to analyse through the Abhaya Gate..."
-                rows={4}
-                className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 text-sm text-stone-200 placeholder-stone-600 resize-none focus:outline-none focus:border-violet-600 font-mono"
-              />
+              <>
+                <label className="block font-sans text-xs font-semibold uppercase tracking-widest text-stone-400 mb-2">
+                  Text to analyse through the Abhaya Gate
+                </label>
+                <textarea value={textInput} onChange={e => setTextInput(e.target.value)}
+                  placeholder="Enter any text. The gate will convert it to a signal vector, run mirror-validation, and apply phase cancellation..."
+                  rows={4}
+                  className="w-full bg-background border border-border px-4 py-3 text-sm text-foreground placeholder-stone-400 resize-none focus:outline-none focus:border-primary font-sans" />
+              </>
             )}
 
             {tab === "signal" && (
-              <div className="space-y-2">
-                <label className="text-xs text-stone-500 uppercase tracking-wider">Comma-separated numeric signal vector</label>
-                <input
-                  value={signalInput}
-                  onChange={e => setSignalInput(e.target.value)}
-                  className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 text-sm text-stone-200 font-mono focus:outline-none focus:border-violet-600"
-                  placeholder="0.8, 0.2, 0.95, 0.1 ..."
-                />
-              </div>
+              <>
+                <label className="block font-sans text-xs font-semibold uppercase tracking-widest text-stone-400 mb-2">
+                  Numeric signal vector — comma-separated
+                </label>
+                <input value={signalInput} onChange={e => setSignalInput(e.target.value)}
+                  className="w-full bg-background border border-border px-4 py-3 text-sm text-foreground font-mono focus:outline-none focus:border-primary"
+                  placeholder="0.8, 0.2, 0.95, 0.1 …" />
+              </>
             )}
 
             {tab === "simulate" && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs text-stone-500 uppercase tracking-wider">Cycles (max 256)</label>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block font-sans text-xs font-semibold uppercase tracking-widest text-stone-400 mb-2">Cycles (max 256)</label>
                   <input type="number" min={4} max={256} value={simCycles}
                     onChange={e => setSimCycles(Number(e.target.value))}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 text-sm text-stone-200 font-mono focus:outline-none focus:border-violet-600" />
+                    className="w-full bg-background border border-border px-4 py-3 text-sm text-foreground font-mono focus:outline-none focus:border-primary" />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs text-stone-500 uppercase tracking-wider">Noise Level ξ (0–1)</label>
+                <div>
+                  <label className="block font-sans text-xs font-semibold uppercase tracking-widest text-stone-400 mb-2">Noise Level ξ (0–1)</label>
                   <input type="number" step={0.05} min={0} max={1} value={simNoise}
                     onChange={e => setSimNoise(Number(e.target.value))}
-                    className="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 text-sm text-stone-200 font-mono focus:outline-none focus:border-violet-600" />
+                    className="w-full bg-background border border-border px-4 py-3 text-sm text-foreground font-mono focus:outline-none focus:border-primary" />
                 </div>
+                <p className="col-span-2 font-sans text-xs text-muted-foreground leading-relaxed">
+                  Replicates the H100 Maha-Pralaya stress test: injects a burst of ξ-noise at cycle 0, then allows Circuit A/B to drive the manifold toward the global free-energy minimum.
+                </p>
               </div>
             )}
 
-            <button onClick={analyze} disabled={loading}
-              className="w-full py-3 rounded-xl font-bold text-sm uppercase tracking-wider transition-all
-                bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500
-                disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-violet-900/30">
-              {loading ? "Running Gate…" : tab === "simulate" ? "Run Maha-Pralaya" : "Run Abhaya Gate"}
+            <button onClick={run} disabled={loading}
+              className="w-full py-3.5 bg-primary text-primary-foreground font-sans font-bold text-sm uppercase tracking-[0.15em] hover:bg-[#E8C66A] transition-colors disabled:opacity-40">
+              {loading ? "Running Gate…" : tab === "simulate" ? "Run Maha-Pralaya Simulation" : "Run Abhaya Gate"}
             </button>
 
             {error && (
-              <p className="text-red-400 text-sm font-mono bg-red-950/30 border border-red-900/50 rounded-lg px-4 py-2">{error}</p>
+              <p className="font-mono text-sm text-red-600 bg-red-50 border border-red-200 px-4 py-2">{error}</p>
             )}
           </div>
-        </motion.div>
+        </div>
 
-        {/* ── Results ───────────────────────────────────────────────────────── */}
+        {/* ── Results ──────────────────────────────────────────────────────── */}
         <AnimatePresence>
           {result && (
-            <motion.div key="result" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="space-y-6">
+            <motion.div key="result" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="space-y-8">
 
-              {/* Status banner */}
-              <div className={`rounded-2xl border px-6 py-4 flex items-center gap-4 ${
+              {/* Status */}
+              <div className={`border-l-4 px-8 py-5 flex items-center gap-6 ${
                 result.passed
-                  ? "border-emerald-700 bg-emerald-950/30"
-                  : "border-red-700 bg-red-950/30"
+                  ? "border-accent bg-accent/5"
+                  : "border-destructive bg-destructive/5"
               }`}>
-                <div className={`w-4 h-4 rounded-full ${result.passed ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
                 <div>
-                  <p className={`font-extrabold text-lg ${result.passed ? "text-emerald-300" : "text-red-300"}`}>
-                    {result.passed ? "PASSED — Manifold Stable" : "FLAGGED — Phase Cancellation Engaged"}
+                  <p className={`font-serif text-2xl ${result.passed ? "text-accent" : "text-destructive"}`}>
+                    {result.passed ? "Gate Passed — Manifold Stable" : "Gate Flagged — Phase Cancellation Engaged"}
                   </p>
-                  <p className="text-xs text-stone-500 font-mono">{result.timestamp}</p>
+                  <p className="font-mono text-xs text-stone-400 mt-1">{result.timestamp}</p>
                 </div>
-                <div className="ml-auto text-right">
-                  <p className="text-xs text-stone-500 uppercase tracking-wider">Phase Cancelled</p>
-                  <p className={`font-bold ${result.phase_cancelled ? "text-violet-300" : "text-stone-600"}`}>
+                <div className="ml-auto text-right shrink-0">
+                  <p className="font-mono text-xs text-stone-400 uppercase tracking-wider">Phase Cancelled</p>
+                  <p className={`font-mono font-bold ${result.phase_cancelled ? "text-accent" : "text-stone-400"}`}>
                     {result.phase_cancelled ? "YES" : "NO"}
                   </p>
                 </div>
               </div>
 
-              {/* Stability meter + circuit cards */}
+              {/* Stability arc + circuits */}
               <div className="grid md:grid-cols-3 gap-6">
-                <div className="md:col-span-1 bg-[#0d1117] border border-stone-800 rounded-2xl p-6 flex items-center justify-center">
-                  <OmegaMeter stability={result.stability} />
+                <div className="bg-card border border-primary/15 p-8 flex items-center justify-center">
+                  <StabilityArc xi={result.xi_flux} />
                 </div>
-                <div className="md:col-span-2 grid grid-cols-2 gap-4">
-                  <CircuitBadge active={!result.circuit_b_active} label="Circuit A — Resonant" value={result.circuit_a} />
-                  <CircuitBadge active={result.circuit_b_active} label="Circuit B — Override" value={result.circuit_b} />
-                  <div className="col-span-2 bg-[#0d1117] border border-stone-800 rounded-xl p-4 space-y-3">
-                    <GaugeBar value={result.xi_flux} label="ξ-Flux (noise)" color="#EF4444" glow={result.xi_flux > 0.5} />
-                    <GaugeBar value={result.sigma_sat} label="σsat (truth saturation)" color="#10B981" />
-                    <GaugeBar value={result.damping_ratio} label="Damping Ratio" color="#A78BFA" glow={result.circuit_b_active} />
-                    <GaugeBar value={result.chi_v3} max={55} label="χv3 (total damping force)" color="#3B82F6" />
+                <div className="md:col-span-2 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <CircuitPanel label="Resonant" circuit="A" value={result.circuit_a} active={!result.circuit_b_active} />
+                    <CircuitPanel label="Override" circuit="B" value={result.circuit_b} active={result.circuit_b_active} />
+                  </div>
+                  <div className="bg-card border border-primary/15 p-6 space-y-4">
+                    <MetricBar value={result.xi_flux} label="ξ-Flux · Stochastic Noise" note="→ phase-cancelled via conjugate interference" />
+                    <MetricBar value={result.sigma_sat} label="σsat · Truth Saturation" />
+                    <MetricBar value={result.damping_ratio} label="Damping Ratio" note="fraction of χv3 applied" />
+                    <MetricBar value={Math.min(result.chi_v3 / 51, 1)} label="χv3 · Total Damping Force" />
                   </div>
                 </div>
               </div>
 
               {/* Telemetry grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-border">
                 {[
                   { label: "Gradient Variance", value: result.gradient_variance.toExponential(2) },
-                  { label: "Free Energy", value: result.free_energy.toFixed(2) },
+                  { label: "Free Energy", value: result.free_energy.toFixed(4) },
                   { label: "Manifold Cycles", value: String(result.cycles) },
-                  { label: "σsat²·α vs θcrit", value: result.circuit_b_active ? "EXCEEDED" : "BELOW" },
+                  { label: "Circuit B Armed", value: result.circuit_b_active ? "YES — SATURATED" : "Standby" },
                 ].map(({ label, value }) => (
-                  <div key={label} className="bg-[#0d1117] border border-stone-800 rounded-xl p-4">
-                    <p className="text-xs text-stone-500 uppercase tracking-wider mb-1">{label}</p>
-                    <p className="text-sm font-extrabold font-mono text-stone-200">{value}</p>
+                  <div key={label} className="bg-card px-6 py-4">
+                    <p className="font-sans text-xs font-semibold uppercase tracking-widest text-stone-400 mb-1">{label}</p>
+                    <p className="font-mono text-sm font-bold text-foreground">{value}</p>
                   </div>
                 ))}
               </div>
 
-              {/* Simulation summary */}
+              {/* Simulation summary + chart */}
               {simSummary && (
-                <div className="bg-[#0d1117] border border-violet-900/40 rounded-2xl p-6 space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-violet-400">Maha-Pralaya Summary</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="bg-card border border-primary/15 p-8 space-y-6">
+                  <div className="border-l-4 border-primary pl-6">
+                    <h2 className="font-serif text-3xl text-foreground mb-1">Maha-Pralaya Results</h2>
+                    <p className="font-sans text-muted-foreground text-sm">
+                      Continuous-variable stress simulation — H100 empirical methodology
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                     {Object.entries(simSummary).map(([k, v]) => (
-                      <div key={k} className="space-y-0.5">
-                        <p className="text-xs text-stone-500 uppercase tracking-wider">{k.replace(/_/g, " ")}</p>
-                        <p className="text-sm font-bold font-mono text-stone-200">{String(v)}</p>
+                      <div key={k}>
+                        <p className="font-sans text-xs font-semibold uppercase tracking-widest text-stone-400 mb-1">
+                          {k.replace(/_/g, " ")}
+                        </p>
+                        <p className="font-mono text-lg font-bold text-foreground">{String(v)}</p>
                       </div>
                     ))}
                   </div>
@@ -407,35 +405,50 @@ export default function Abhaya() {
           )}
         </AnimatePresence>
 
-        {/* ── Reference card ────────────────────────────────────────────────── */}
-        <div className="bg-[#0d1117] border border-stone-800 rounded-2xl p-6 grid md:grid-cols-2 gap-6 text-sm">
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-3">Circuit A — Resonant Baseline</h3>
-            <p className="text-stone-400 leading-relaxed">
-              Exponential cooling: <code className="text-blue-400 font-mono">λ₀·e<sup>−κ(1−Ξ)</sup></code>.
-              Tracks macro-state entropy and cools the manifold smoothly as stability Ξ approaches 1.0.
-              Analogous to a MOSFET operating in the sub-threshold region.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-3">Circuit B — Thermodynamic Override</h3>
-            <p className="text-stone-400 leading-relaxed">
-              Sigmoid-gated flood: <code className="text-violet-400 font-mono">Λmax·σ(−ασsat²−θcrit)/Var(∇)</code>.
-              When σsat²·α exceeds θcrit the gate violently saturates to Λmax=50, flooding the manifold
-              with conjugate photons — forcing escape from Barren Plateaus.
-            </p>
-          </div>
-          <div className="md:col-span-2 border-t border-stone-800 pt-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 mb-2">Phase Cancellation Mechanism</h3>
-            <p className="text-stone-400 leading-relaxed">
-              Mirror-validation <code className="text-emerald-400 font-mono">M(C) = C·conj(C) → σsat²</code> isolates
-              the ξ-flux noise component from each signal token. Conjugate interference
-              (<code className="text-emerald-400 font-mono">noise + (−noise)·dampFactor·ξ</code>) destructively cancels
-              the stochastic component, leaving only Vidya (truth) saturation in the stabilised output.
+        {/* ── Reference ────────────────────────────────────────────────────── */}
+        <div className="mt-16 grid md:grid-cols-2 gap-8">
+          {[
+            {
+              title: "Circuit A — Resonant Baseline",
+              formula: "λ₀·e^(−κ(1−Ξ))",
+              color: "primary" as const,
+              body: `Tracks macro-state entropy and cools the manifold exponentially as stability Ξ approaches 1.0. 
+              Prevents overshoot. Analogous to a MOSFET operating in its sub-threshold region — drain current 
+              exponentially proportional to gate voltage.`,
+            },
+            {
+              title: "Circuit B — Thermodynamic Override",
+              formula: "Λmax·σ(α·σsat²+θcrit)/Var(∇)",
+              color: "accent" as const,
+              body: `Sigmoid-gated flood. When σsat²·α exceeds θcrit (arms at σsat > 0.816), the gate 
+              violently saturates to Λmax = 50, flooding the manifold with conjugate damping force — 
+              forcing escape from Barren Plateaus without discrete gate logic.`,
+            },
+          ].map(({ title, formula, color, body }) => (
+            <div key={title} className={`bg-card border p-8 relative ${color === "primary" ? "border-primary/20" : "border-accent/20"}`}>
+              <div className={`absolute top-0 left-0 w-1.5 h-full ${color === "primary" ? "bg-primary/80" : "bg-accent/80"}`} />
+              <h3 className={`font-serif text-2xl mb-2 ${color === "primary" ? "text-primary" : "text-accent"}`}>{title}</h3>
+              <div className={`font-mono text-sm px-3 py-2 mb-4 ${color === "primary" ? "bg-primary/10 text-primary border border-primary/20" : "bg-accent/10 text-accent border border-accent/20"}`}>
+                {formula}
+              </div>
+              <p className="font-sans text-muted-foreground text-sm leading-relaxed">{body}</p>
+            </div>
+          ))}
+          <div className="md:col-span-2 bg-card border border-primary/15 p-8">
+            <h3 className="font-serif text-2xl mb-3 text-foreground">Phase Cancellation Mechanism</h3>
+            <div className="font-mono text-sm text-[#E8C66A] bg-[#0B0F2E] px-4 py-2 inline-block mb-4 border border-accent/20">
+              M(C) = C · conj(C) → σsat² &nbsp;&nbsp;|&nbsp;&nbsp; stabilised = mean + (noise + −noise·dampFactor·ξ)
+            </div>
+            <p className="font-sans text-muted-foreground text-sm leading-relaxed max-w-3xl">
+              Mirror-validation isolates the ξ-flux noise component from each signal token.
+              Conjugate interference destructively cancels the stochastic component,
+              leaving only Vidya (truth) saturation in the stabilised output — analogous to a
+              Phase-Conjugate Mirror flooding the optical cavity with conjugate photons via a PPLN crystal.
             </p>
           </div>
         </div>
-      </div>
+
+      </motion.div>
     </div>
   );
 }
