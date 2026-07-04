@@ -12,7 +12,7 @@ interface ChatMessage {
   contextUsed?: string[];
 }
 
-export default function Home() {
+export default function Home({ isMentorObserver }: { isMentorObserver?: boolean }) {
   const [sessionId] = useState(() => crypto.randomUUID());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -117,7 +117,7 @@ export default function Home() {
   const correctStreak = shriState?.correct_streak || 0;
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-black text-system font-mono overflow-hidden selection:bg-system/30 selection:text-system">
+    <div className={`flex flex-col bg-black text-system font-mono overflow-hidden selection:bg-system/30 selection:text-system ${isMentorObserver ? 'absolute inset-0' : 'h-[100dvh]'}`}>
       {/* Header StatusBar */}
       <header className="flex flex-col sm:flex-row justify-between items-center p-3 sm:p-4 border-b border-system/20 bg-black/80 backdrop-blur z-10 gap-3">
         
@@ -178,19 +178,21 @@ export default function Home() {
           </div>
 
           {/* Subscribe Link */}
-          <a 
-            href="/subscribe"
-            onClick={(e) => {
-              e.preventDefault();
-              window.history.pushState(null, '', '/subscribe');
-              window.dispatchEvent(new Event('popstate'));
-            }}
-            className="flex items-center gap-2 px-3 py-1.5 border border-user/50 text-user hover:bg-user/10 transition-colors uppercase cursor-pointer text-glow-user"
-            data-testid="nav-subscribe"
-          >
-            <Zap className="w-3 h-3" />
-            <span>Upgrade</span>
-          </a>
+          {!isMentorObserver && (
+            <a 
+              href="/subscribe"
+              onClick={(e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', '/subscribe');
+                window.dispatchEvent(new Event('popstate'));
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 border border-user/50 text-user hover:bg-user/10 transition-colors uppercase cursor-pointer text-glow-user"
+              data-testid="nav-subscribe"
+            >
+              <Zap className="w-3 h-3" />
+              <span>Upgrade</span>
+            </a>
+          )}
 
           {/* Reset Button */}
           <button 
@@ -209,6 +211,12 @@ export default function Home() {
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 relative">
         {/* Background Decorative Grid */}
         <div className="absolute inset-0 pointer-events-none opacity-5 bg-[linear-gradient(rgba(6,182,212,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.2)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
+
+        {isMentorObserver && (
+          <div className="max-w-4xl mx-auto border border-mentor/50 bg-mentor/10 text-mentor px-4 py-2 mb-4 text-xs uppercase tracking-wider shadow-[0_0_15px_rgba(139,92,246,0.2)]">
+            ACTIVE_SESSION_MODE: MENTOR_OBSERVER | You are attending an AI tutoring session as a school mentor.
+          </div>
+        )}
 
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center">

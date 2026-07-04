@@ -5,6 +5,7 @@ import abhayaRouter from "./abhaya.js";
 import stripeRouter from "./stripe.js";
 import shriRouter from "./shri.js";
 import subscriptionRouter from "./subscription.js";
+import mentorRouter from "./mentor.js";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use("/abhaya", abhayaRouter);
 router.use("/stripe", stripeRouter);
 router.use("/shri", shriRouter);
 router.use("/subscription", subscriptionRouter);
+router.use("/mentor", mentorRouter);
 
 export default router;

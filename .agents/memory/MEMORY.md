@@ -6,3 +6,4 @@
 - [Stripe Integration Quirks](stripe-integration-quirks.md) — connector field is `settings.secret` not `secret_key`; stripe-replit-sync must be esbuild-external; runMigrations has no schema param.
 - [Shri Academy Architecture](shri-academy-arch.md) — Python FastAPI proxied via api-server; LangChain 1.x imports; ChromaDB ONNX; TS2308 Orval response schema naming rule.
 - [Global Subscription Architecture](subscription-arch.md) — GDP tiers, Stripe card+bank, ETH/USDC/BTC/SARA crypto; tx replay prevention; atomic confirm+activate.
+- [Mentor Auth & Portal](mentor-auth.md) — school_mentor role, PBKDF2+HMAC auth, timingSafeEqual everywhere, no upsert on register, /mentor dashboard in Shri Academy.

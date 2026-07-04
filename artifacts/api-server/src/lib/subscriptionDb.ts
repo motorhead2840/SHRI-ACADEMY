@@ -16,7 +16,12 @@ export async function initSubscriptionSchema(): Promise<void> {
         CHECK (subscription_tier IN ('high','middle','low')),
       ADD COLUMN IF NOT EXISTS subscription_source      TEXT
         CHECK (subscription_source IN ('stripe','crypto')),
-      ADD COLUMN IF NOT EXISTS subscription_expires_at  TIMESTAMPTZ;
+      ADD COLUMN IF NOT EXISTS subscription_expires_at  TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS role                     TEXT
+        CHECK (role IN ('student','school_mentor','admin'))
+        DEFAULT 'student',
+      ADD COLUMN IF NOT EXISTS password_hash            TEXT,
+      ADD COLUMN IF NOT EXISTS password_salt            TEXT;
   `);
 
   await pool.query(`
