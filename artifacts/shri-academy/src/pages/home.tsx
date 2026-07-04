@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useShriChat, useGetShriState, useResetShriSession, getGetShriStateQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Terminal, Send, Activity, Zap, ShieldAlert, Cpu, RefreshCw } from 'lucide-react';
+import { Terminal, Send, Activity, Zap, ShieldAlert, Cpu, RefreshCw, Award } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
@@ -176,6 +176,23 @@ export default function Home({ isMentorObserver }: { isMentorObserver?: boolean 
               {correctStreak.toString().padStart(2, '0')}
             </span>
           </div>
+
+          {/* Scholarship Link */}
+          {!isMentorObserver && (
+            <a
+              href="/scholarship"
+              onClick={(e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', '/scholarship');
+                window.dispatchEvent(new Event('popstate'));
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 border border-mentor/40 text-mentor/70 hover:bg-mentor/10 hover:text-mentor transition-colors uppercase cursor-pointer"
+              data-testid="nav-scholarship"
+            >
+              <Award className="w-3 h-3" />
+              <span>Scholarship</span>
+            </a>
+          )}
 
           {/* Marketplace Link */}
           {!isMentorObserver && (

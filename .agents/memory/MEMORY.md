@@ -1,5 +1,7 @@
 # Memory Index
 
+- [Scholarship Scheme](scholarship-arch.md) — monthly exam → top 100 → lifetime sub; schema, routes, grant flow, subscription_source='scholarship'.
+
 - [SecOps + RageSage](secops-ragethesage.md) — PMI content scoring, Cyberdemon outbox, RageSage SageMaker pipeline; ARN→name extraction required.
 
 - [AWS Blockchain IAM](aws-blockchain-iam.md) — SARA_IAM_REPLIT user needs explicit ManagedBlockchain query permissions; missing by default.

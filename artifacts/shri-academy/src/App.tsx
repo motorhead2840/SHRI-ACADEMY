@@ -5,6 +5,7 @@ import NotFound from '@/pages/not-found';
 import Home from '@/pages/home';
 import Subscribe from '@/pages/subscribe';
 import Marketplace from '@/pages/marketplace';
+import Scholarship from '@/pages/scholarship';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import MentorLogin from '@/pages/mentor-login';
 import MentorDashboard from '@/pages/mentor-dashboard';
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/">{() => <Home />}</Route>
       <Route path="/subscribe">{() => <Subscribe />}</Route>
       <Route path="/marketplace">{() => <Marketplace />}</Route>
+      <Route path="/scholarship">{() => <Scholarship />}</Route>
       <Route path="/mentor/login">{() => <MentorLogin />}</Route>
       <Route path="/mentor">{() => <MentorDashboard />}</Route>
       <Route>{() => <NotFound />}</Route>

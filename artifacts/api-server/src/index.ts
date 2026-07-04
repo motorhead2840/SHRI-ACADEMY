@@ -2,6 +2,7 @@ import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient.js";
 import { initSubscriptionSchema } from "./lib/subscriptionDb.js";
 import { initSecopsSchema } from "./lib/secopsDb.js";
+import { initScholarshipSchema } from "./lib/scholarshipDb.js";
 import { ensureSubscriptionProducts } from "./lib/stripeProducts.js";
 import app from "./app.js";
 import { logger } from "./lib/logger.js";
@@ -64,6 +65,16 @@ async function initSecops() {
   }
 }
 void initSecops();
+
+async function initScholarship() {
+  try {
+    await initScholarshipSchema();
+    logger.info("Scholarship schema ready");
+  } catch (err) {
+    logger.error({ err }, "Scholarship schema init failed (non-fatal)");
+  }
+}
+void initScholarship();
 
 app.listen(port, (err) => {
   if (err) { logger.error({ err }, "Error listening"); process.exit(1); }

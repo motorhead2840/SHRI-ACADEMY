@@ -7,6 +7,7 @@ import shriRouter from "./shri.js";
 import subscriptionRouter from "./subscription.js";
 import mentorRouter from "./mentor.js";
 import secopRouter from "./secops.js";
+import scholarshipRouter from "./scholarship.js";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use("/shri", shriRouter);
 router.use("/subscription", subscriptionRouter);
 router.use("/mentor", mentorRouter);
 router.use("/secops", secopRouter);
+router.use("/scholarship", scholarshipRouter);
 
 export default router;

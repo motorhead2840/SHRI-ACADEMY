@@ -1,13 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import {
   Terminal, LogOut, BarChart3, MessageSquare, RefreshCw, AlertTriangle,
   Users, CreditCard, Activity, ShieldCheck, Lock, Cpu, Database,
   Brain, Radio, CheckCircle, ExternalLink, Server, Zap, Eye, Key,
   GitBranch, AlertOctagon, FlaskConical, ArrowRight,
+  GraduationCap, Trophy, Plus, BookOpen, Trash2, Play, Square,
+  Award, ChevronDown, ChevronUp, Send, Clock, Gift,
 } from 'lucide-react';
 import { getMentorMe, getMentorMetrics } from '@/lib/mentor-api';
 import Home from '@/pages/home';
+import {
+  listExams, createExam, addQuestion, getMentorQuestions, deleteQuestion,
+  setExamStatus, getSubmissions, scoreSubmission, grantScholarships,
+  type ScholarshipExam, type ScholarshipQuestion, type ScholarshipSubmission,
+} from '@/lib/scholarship-api';
 
 function parseJwt(token: string) {
   try {
@@ -29,7 +36,7 @@ export default function MentorDashboard() {
   const [, setLocation] = useLocation();
   const [isVerifying, setIsVerifying] = useState(true);
   const [email, setEmail] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'mentoring' | 'metrics' | 'security'>('mentoring');
+  const [activeTab, setActiveTab] = useState<'mentoring' | 'metrics' | 'security' | 'scholarship'>('mentoring');
 
   const [metrics, setMetrics] = useState<any>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
@@ -156,6 +163,16 @@ export default function MentorDashboard() {
         >
           <ShieldCheck className="w-4 h-4" /> SECURITY_INFRA
         </button>
+        <button
+          onClick={() => setActiveTab('scholarship')}
+          className={`flex-1 min-w-max py-3 px-4 uppercase tracking-widest text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+            activeTab === 'scholarship'
+              ? 'border-b-2 border-mentor text-mentor bg-mentor/10 text-glow-mentor'
+              : 'text-mentor/40 hover:text-mentor/70 hover:bg-mentor/5'
+          }`}
+        >
+          <GraduationCap className="w-4 h-4" /> SCHOLARSHIP_MGMT
+        </button>
       </div>
 
       {/* Content Area */}
@@ -170,6 +187,10 @@ export default function MentorDashboard() {
         ) : activeTab === 'security' ? (
           <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8 relative z-10">
             <SecurityInfraTab />
+          </div>
+        ) : activeTab === 'scholarship' ? (
+          <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8 relative z-10">
+            <ScholarshipMgmtTab />
           </div>
         ) : (
           <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8 relative z-10">
@@ -306,6 +327,517 @@ export default function MentorDashboard() {
       
       {/* Visual Glitch Overlay */}
       <div className="pointer-events-none fixed inset-0 z-50 mix-blend-overlay opacity-10 bg-[linear-gradient(transparent_50%,rgba(0,0,0,0.25)_50%)] bg-[size:100%_4px]"></div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scholarship Management Tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MONTH_NAMES = [
+  '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+function ScholarshipMgmtTab() {
+  const token = localStorage.getItem('mentor_token') ?? '';
+
+  // ── Exams list ──
+  const [exams, setExams] = useState<ScholarshipExam[]>([]);
+  const [examsLoading, setExamsLoading] = useState(true);
+  const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
+
+  // ── Create exam form ──
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newMonth, setNewMonth] = useState(new Date().getMonth() + 1);
+  const [newYear, setNewYear] = useState(new Date().getFullYear());
+  const [newOpensAt, setNewOpensAt] = useState('');
+  const [newClosesAt, setNewClosesAt] = useState('');
+  const [creating, setCreating] = useState(false);
+
+  // ── Questions form ──
+  const [questions, setQuestions] = useState<ScholarshipQuestion[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [showAddQ, setShowAddQ] = useState(false);
+  const [qText, setQText] = useState('');
+  const [qType, setQType] = useState<'mcq' | 'short_answer'>('mcq');
+  const [qOptions, setQOptions] = useState(['', '', '', '']);
+  const [qCorrect, setQCorrect] = useState(0);
+  const [qMaxScore, setQMaxScore] = useState(10);
+  const [addingQ, setAddingQ] = useState(false);
+
+  // ── Submissions ──
+  const [submissions, setSubmissions] = useState<ScholarshipSubmission[]>([]);
+  const [subsLoading, setSubsLoading] = useState(false);
+  const [activeSection, setActiveSection] = useState<'questions' | 'submissions'>('questions');
+  const [grantingResult, setGrantingResult] = useState<string | null>(null);
+  const [granting, setGranting] = useState(false);
+
+  // ── Mentor score edit ──
+  const [scoreEdit, setScoreEdit] = useState<Record<string, string>>({});
+
+  const fetchExams = useCallback(async () => {
+    setExamsLoading(true);
+    try {
+      const { exams: data } = await listExams(token);
+      setExams(data);
+    } catch {
+      // ignore
+    } finally {
+      setExamsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { fetchExams(); }, [fetchExams]);
+
+  const selectedExam = exams.find(e => e.id === selectedExamId) ?? null;
+
+  const fetchQuestions = useCallback(async (examId: string) => {
+    setQuestionsLoading(true);
+    try {
+      const { questions: data } = await getMentorQuestions(token, examId);
+      setQuestions(data);
+    } catch { /* ignore */ } finally {
+      setQuestionsLoading(false);
+    }
+  }, [token]);
+
+  const fetchSubmissions = useCallback(async (examId: string) => {
+    setSubsLoading(true);
+    try {
+      const { submissions: data } = await getSubmissions(token, examId);
+      setSubmissions(data);
+    } catch { /* ignore */ } finally {
+      setSubsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (!selectedExamId) return;
+    if (activeSection === 'questions') fetchQuestions(selectedExamId);
+    else fetchSubmissions(selectedExamId);
+  }, [selectedExamId, activeSection, fetchQuestions, fetchSubmissions]);
+
+  const handleCreateExam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const { exam } = await createExam(token, {
+        title: newTitle,
+        description: newDesc,
+        month: newMonth,
+        year: newYear,
+        opens_at: newOpensAt || undefined,
+        closes_at: newClosesAt || undefined,
+      });
+      setExams(prev => [exam, ...prev]);
+      setSelectedExamId(exam.id);
+      setShowCreateForm(false);
+      setNewTitle(''); setNewDesc(''); setNewOpensAt(''); setNewClosesAt('');
+    } catch { /* ignore */ } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleAddQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedExamId) return;
+    setAddingQ(true);
+    try {
+      await addQuestion(token, selectedExamId, {
+        order_num: questions.length + 1,
+        question_text: qText,
+        question_type: qType,
+        options: qType === 'mcq' ? qOptions.filter(o => o.trim()) : undefined,
+        correct_option: qType === 'mcq' ? qCorrect : undefined,
+        max_score: qMaxScore,
+      });
+      await fetchQuestions(selectedExamId);
+      setShowAddQ(false);
+      setQText(''); setQOptions(['','','','']); setQCorrect(0); setQMaxScore(10);
+    } catch { /* ignore */ } finally {
+      setAddingQ(false);
+    }
+  };
+
+  const handleDeleteQ = async (qid: string) => {
+    if (!selectedExamId) return;
+    await deleteQuestion(token, qid);
+    await fetchQuestions(selectedExamId);
+  };
+
+  const handleStatusChange = async (examId: string, status: string) => {
+    await setExamStatus(token, examId, status);
+    await fetchExams();
+  };
+
+  const handleScoreSubmission = async (sid: string) => {
+    const val = Number(scoreEdit[sid]);
+    if (isNaN(val)) return;
+    await scoreSubmission(token, sid, val);
+    if (selectedExamId) await fetchSubmissions(selectedExamId);
+  };
+
+  const handleGrantScholarships = async () => {
+    if (!selectedExamId) return;
+    setGranting(true);
+    try {
+      const { granted } = await grantScholarships(token, selectedExamId);
+      setGrantingResult(`✓ ${granted} lifetime scholarships granted and applied to student accounts.`);
+      await fetchExams();
+    } catch (err: any) {
+      setGrantingResult(`Error: ${err.message}`);
+    } finally {
+      setGranting(false);
+    }
+  };
+
+  const statusBadgeClass = (status: string) => {
+    if (status === 'open')   return 'text-green-400 border-green-400/40';
+    if (status === 'graded') return 'text-user border-user/40';
+    if (status === 'closed') return 'text-system/50 border-system/30';
+    return 'text-mentor/50 border-mentor/20';
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="border-b border-mentor/30 pb-5 flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <GraduationCap className="w-6 h-6 text-mentor text-glow-mentor" />
+          <h2 className="text-xl text-mentor font-bold tracking-widest uppercase text-glow-mentor">
+            SCHOLARSHIP_MANAGEMENT
+          </h2>
+        </div>
+        <button
+          onClick={() => setShowCreateForm(v => !v)}
+          className="flex items-center gap-2 px-4 py-2 border border-mentor/50 text-mentor hover:bg-mentor/10 transition-colors uppercase tracking-wider text-xs font-bold"
+        >
+          <Plus className="w-4 h-4" /> New Exam
+        </button>
+      </div>
+
+      {/* Create exam form */}
+      {showCreateForm && (
+        <form onSubmit={handleCreateExam} className="border border-mentor/30 bg-mentor/5 p-5 space-y-4">
+          <p className="text-[10px] text-mentor/60 uppercase tracking-widest mb-3">Create New Exam</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label htmlFor="exam-title" className="block text-[10px] uppercase tracking-wider text-system/50 mb-1">Exam Title *</label>
+              <input id="exam-title" type="text" required value={newTitle} onChange={e => setNewTitle(e.target.value)}
+                placeholder="e.g. Shri Academy July 2026 Scholarship Exam"
+                className="w-full bg-black border border-system/30 text-system/80 p-3 text-sm placeholder:text-system/20 focus:outline-none focus:border-mentor/50 rounded-none" />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="exam-desc" className="block text-[10px] uppercase tracking-wider text-system/50 mb-1">Description</label>
+              <textarea id="exam-desc" rows={2} value={newDesc} onChange={e => setNewDesc(e.target.value)}
+                placeholder="Open to all ages. Top 100 scorers receive a lifetime subscription."
+                className="w-full bg-black border border-system/30 text-system/80 p-3 text-sm placeholder:text-system/20 focus:outline-none focus:border-mentor/50 rounded-none resize-none" />
+            </div>
+            <div>
+              <label htmlFor="exam-month" className="block text-[10px] uppercase tracking-wider text-system/50 mb-1">Month *</label>
+              <select id="exam-month" value={newMonth} onChange={e => setNewMonth(Number(e.target.value))} required
+                className="w-full bg-black border border-system/30 text-system/80 p-3 text-sm focus:outline-none focus:border-mentor/50 rounded-none">
+                {MONTH_NAMES.slice(1).map((m, i) => <option key={m} value={i+1}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="exam-year" className="block text-[10px] uppercase tracking-wider text-system/50 mb-1">Year *</label>
+              <input id="exam-year" type="number" min={2024} max={2099} required value={newYear} onChange={e => setNewYear(Number(e.target.value))}
+                className="w-full bg-black border border-system/30 text-system/80 p-3 text-sm focus:outline-none focus:border-mentor/50 rounded-none" />
+            </div>
+            <div>
+              <label htmlFor="exam-opens" className="block text-[10px] uppercase tracking-wider text-system/50 mb-1">Opens At (optional)</label>
+              <input id="exam-opens" type="datetime-local" value={newOpensAt} onChange={e => setNewOpensAt(e.target.value)}
+                className="w-full bg-black border border-system/30 text-system/80 p-3 text-sm focus:outline-none focus:border-mentor/50 rounded-none" />
+            </div>
+            <div>
+              <label htmlFor="exam-closes" className="block text-[10px] uppercase tracking-wider text-system/50 mb-1">Closes At (optional)</label>
+              <input id="exam-closes" type="datetime-local" value={newClosesAt} onChange={e => setNewClosesAt(e.target.value)}
+                className="w-full bg-black border border-system/30 text-system/80 p-3 text-sm focus:outline-none focus:border-mentor/50 rounded-none" />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button type="submit" disabled={creating}
+              className="flex items-center gap-2 px-5 py-2.5 border border-mentor/60 bg-mentor/10 text-mentor hover:bg-mentor/20 transition-all text-xs uppercase tracking-widest font-bold disabled:opacity-50">
+              {creating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              {creating ? 'Creating...' : 'Create Exam'}
+            </button>
+            <button type="button" onClick={() => setShowCreateForm(false)}
+              className="px-4 py-2 border border-system/20 text-system/50 hover:text-system/80 transition-colors text-xs uppercase tracking-wider">
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Exam list */}
+      <div className="space-y-2">
+        <p className="text-[10px] text-system/40 uppercase tracking-widest flex items-center gap-2">
+          <BookOpen className="w-3 h-3" /> All Exams
+        </p>
+        {examsLoading ? (
+          <div className="animate-pulse space-y-2">
+            {[1,2].map(i => <div key={i} className="h-14 border border-system/20 bg-system/5" />)}
+          </div>
+        ) : exams.length === 0 ? (
+          <div className="border border-system/20 p-6 text-center text-system/40 text-sm uppercase tracking-wider">
+            No exams yet — create your first exam above.
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {exams.map(exam => (
+              <div key={exam.id}
+                className={`border p-4 cursor-pointer transition-all ${
+                  selectedExamId === exam.id ? 'border-mentor/50 bg-mentor/5' : 'border-system/20 hover:border-system/40'
+                }`}
+                onClick={() => setSelectedExamId(exam.id === selectedExamId ? null : exam.id)}>
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <Trophy className={`w-4 h-4 ${selectedExamId === exam.id ? 'text-mentor' : 'text-system/30'}`} />
+                    <div>
+                      <p className="text-system/90 text-sm font-bold uppercase tracking-wider">{exam.title}</p>
+                      <p className="text-system/40 text-[10px] uppercase">{MONTH_NAMES[exam.month]} {exam.year} · {exam.submission_count} submissions</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[9px] border px-2 py-0.5 uppercase tracking-wider font-bold ${statusBadgeClass(exam.status)}`}>
+                      {exam.status}
+                    </span>
+                    {selectedExamId === exam.id
+                      ? <ChevronUp className="w-4 h-4 text-system/40" />
+                      : <ChevronDown className="w-4 h-4 text-system/40" />}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Selected exam management */}
+      {selectedExam && (
+        <div className="border border-mentor/30 p-5 space-y-5">
+          {/* Exam controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 border-b border-mentor/20 pb-4">
+            <div className="flex-1">
+              <p className="text-mentor font-bold uppercase tracking-wider text-sm">{selectedExam.title}</p>
+              <p className="text-system/40 text-[10px] mt-0.5 uppercase">{MONTH_NAMES[selectedExam.month]} {selectedExam.year}</p>
+              {selectedExam.description && <p className="text-system/50 text-xs mt-1">{selectedExam.description}</p>}
+            </div>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              {selectedExam.status === 'draft' && (
+                <button onClick={() => handleStatusChange(selectedExam.id, 'open')}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-green-500/50 text-green-400 hover:bg-green-500/10 transition-colors text-xs uppercase tracking-wider font-bold">
+                  <Play className="w-3.5 h-3.5" /> Open Exam
+                </button>
+              )}
+              {selectedExam.status === 'open' && (
+                <button onClick={() => handleStatusChange(selectedExam.id, 'closed')}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-user/50 text-user hover:bg-user/10 transition-colors text-xs uppercase tracking-wider font-bold">
+                  <Square className="w-3.5 h-3.5" /> Close Exam
+                </button>
+              )}
+              {(selectedExam.status === 'closed') && (
+                <button onClick={handleGrantScholarships} disabled={granting}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-mentor/50 text-mentor hover:bg-mentor/10 transition-colors text-xs uppercase tracking-wider font-bold disabled:opacity-50">
+                  {granting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Gift className="w-3.5 h-3.5" />}
+                  Grant Top 100
+                </button>
+              )}
+            </div>
+          </div>
+
+          {grantingResult && (
+            <div className="border border-mentor/30 bg-mentor/5 p-3 flex items-start gap-2">
+              <CheckCircle className="w-4 h-4 text-mentor shrink-0 mt-0.5" />
+              <p className="text-mentor text-xs">{grantingResult}</p>
+            </div>
+          )}
+
+          {/* Section tabs */}
+          <div className="flex border-b border-system/20">
+            {(['questions', 'submissions'] as const).map(s => (
+              <button key={s} onClick={() => setActiveSection(s)}
+                className={`px-5 py-2.5 uppercase tracking-widest text-xs font-bold transition-all flex items-center gap-2 ${
+                  activeSection === s
+                    ? 'border-b-2 border-mentor text-mentor'
+                    : 'text-system/40 hover:text-system/70'
+                }`}>
+                {s === 'questions' ? <BookOpen className="w-3.5 h-3.5" /> : <Users className="w-3.5 h-3.5" />}
+                {s === 'questions' ? `Questions (${questions.length})` : `Submissions (${selectedExam.submission_count})`}
+              </button>
+            ))}
+          </div>
+
+          {/* Questions panel */}
+          {activeSection === 'questions' && (
+            <div className="space-y-3">
+              {/* Add question form */}
+              <div className="flex justify-end">
+                <button onClick={() => setShowAddQ(v => !v)}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-system/30 text-system/60 hover:text-system hover:border-system/60 transition-colors text-xs uppercase tracking-wider">
+                  <Plus className="w-3.5 h-3.5" /> Add Question
+                </button>
+              </div>
+
+              {showAddQ && (
+                <form onSubmit={handleAddQuestion} className="border border-system/30 bg-black/60 p-4 space-y-4">
+                  <div>
+                    <label htmlFor="q-text" className="block text-[10px] uppercase tracking-wider text-system/50 mb-1">Question Text *</label>
+                    <textarea id="q-text" rows={2} required value={qText} onChange={e => setQText(e.target.value)}
+                      placeholder="Enter the question..."
+                      className="w-full bg-black border border-system/30 text-system/80 p-3 text-sm placeholder:text-system/20 focus:outline-none focus:border-system/60 rounded-none resize-none" />
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label htmlFor="q-type" className="block text-[10px] uppercase tracking-wider text-system/50 mb-1">Type</label>
+                      <select id="q-type" value={qType} onChange={e => setQType(e.target.value as 'mcq' | 'short_answer')}
+                        className="w-full bg-black border border-system/30 text-system/80 p-3 text-sm focus:outline-none focus:border-system/60 rounded-none">
+                        <option value="mcq">Multiple Choice</option>
+                        <option value="short_answer">Short Answer</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="q-score" className="block text-[10px] uppercase tracking-wider text-system/50 mb-1">Max Score</label>
+                      <input id="q-score" type="number" min={1} max={100} value={qMaxScore} onChange={e => setQMaxScore(Number(e.target.value))}
+                        className="w-full bg-black border border-system/30 text-system/80 p-3 text-sm focus:outline-none focus:border-system/60 rounded-none" />
+                    </div>
+                  </div>
+                  {qType === 'mcq' && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] text-system/50 uppercase tracking-wider">Answer Options (mark correct with ●)</p>
+                      {qOptions.map((opt, oi) => (
+                        <div key={oi} className="flex items-center gap-2">
+                          <button type="button" onClick={() => setQCorrect(oi)}
+                            className={`w-5 h-5 rounded-full border flex-shrink-0 transition-colors ${qCorrect === oi ? 'bg-system border-system' : 'border-system/30'}`} />
+                          <input type="text" value={opt} onChange={e => setQOptions(prev => prev.map((o, i) => i === oi ? e.target.value : o))}
+                            placeholder={`Option ${String.fromCharCode(65 + oi)}`}
+                            className="flex-1 bg-black border border-system/30 text-system/80 p-2 text-xs placeholder:text-system/20 focus:outline-none focus:border-system/60 rounded-none" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button type="submit" disabled={addingQ}
+                      className="flex items-center gap-1.5 px-4 py-2 border border-system/60 bg-system/10 text-system hover:bg-system/20 transition-all text-xs uppercase tracking-widest font-bold disabled:opacity-50">
+                      {addingQ ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                      Save Question
+                    </button>
+                    <button type="button" onClick={() => setShowAddQ(false)}
+                      className="px-3 py-2 border border-system/20 text-system/40 hover:text-system/70 transition-colors text-xs uppercase">Cancel</button>
+                  </div>
+                </form>
+              )}
+
+              {questionsLoading ? (
+                <div className="animate-pulse space-y-2">
+                  {[1,2,3].map(i => <div key={i} className="h-16 border border-system/20 bg-system/5" />)}
+                </div>
+              ) : questions.length === 0 ? (
+                <div className="border border-system/20 p-6 text-center text-system/40 text-sm uppercase tracking-wider">
+                  No questions yet — add the first one above.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {questions.map((q, i) => (
+                    <div key={q.id} className="border border-system/20 p-4 flex gap-4 hover:border-system/40 transition-colors">
+                      <span className="text-system/30 text-xs font-bold shrink-0 mt-0.5">Q{i+1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-system/80 text-sm mb-1">{q.question_text}</p>
+                        <div className="flex items-center gap-3 flex-wrap text-[10px]">
+                          <span className={`border px-1.5 py-0.5 uppercase ${q.question_type === 'mcq' ? 'border-system/30 text-system/50' : 'border-mentor/30 text-mentor/60'}`}>
+                            {q.question_type === 'mcq' ? 'MCQ' : 'Short Answer'}
+                          </span>
+                          <span className="text-system/30">{q.max_score} pts</span>
+                          {q.question_type === 'mcq' && q.options && (
+                            <span className="text-system/30">{q.options.length} options · Correct: {String.fromCharCode(65 + (q.correct_option ?? 0))}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={() => handleDeleteQ(q.id)}
+                        className="text-system/20 hover:text-destructive transition-colors shrink-0 mt-0.5">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Submissions panel */}
+          {activeSection === 'submissions' && (
+            <div className="space-y-3">
+              {subsLoading ? (
+                <div className="animate-pulse space-y-2">
+                  {[1,2,3,4].map(i => <div key={i} className="h-12 border border-system/20 bg-system/5" />)}
+                </div>
+              ) : submissions.length === 0 ? (
+                <div className="border border-system/20 p-6 text-center text-system/40 text-sm uppercase tracking-wider">
+                  No submissions yet.
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-system/20">
+                          <th className="text-left text-system/40 uppercase tracking-wider py-2 pr-4">Name</th>
+                          <th className="text-left text-system/40 uppercase tracking-wider py-2 pr-4">Email</th>
+                          <th className="text-center text-system/40 uppercase tracking-wider py-2 pr-4">Age</th>
+                          <th className="text-center text-system/40 uppercase tracking-wider py-2 pr-4">Auto</th>
+                          <th className="text-center text-system/40 uppercase tracking-wider py-2 pr-4">Mentor</th>
+                          <th className="text-center text-system/40 uppercase tracking-wider py-2 pr-4">Total</th>
+                          <th className="text-center text-system/40 uppercase tracking-wider py-2 pr-4">Rank</th>
+                          <th className="text-center text-system/40 uppercase tracking-wider py-2">Won</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-system/10">
+                        {submissions.map(s => (
+                          <tr key={s.id} className={`hover:bg-system/5 transition-colors ${s.scholarship_granted ? 'bg-user/5' : ''}`}>
+                            <td className="py-2.5 pr-4 text-system/80 font-medium">{s.full_name}</td>
+                            <td className="py-2.5 pr-4 text-system/50 font-mono">{s.email}</td>
+                            <td className="py-2.5 pr-4 text-center text-system/50">{s.age}</td>
+                            <td className="py-2.5 pr-4 text-center text-system/70">{Number(s.auto_score).toFixed(0)}</td>
+                            <td className="py-2.5 pr-4 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <input
+                                  type="number" min={0} step={0.5}
+                                  value={scoreEdit[s.id] ?? s.mentor_score}
+                                  onChange={e => setScoreEdit(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                  className="w-14 bg-black border border-system/30 text-system/80 p-1 text-xs text-center focus:outline-none focus:border-mentor/50 rounded-none"
+                                />
+                                <button onClick={() => handleScoreSubmission(s.id)}
+                                  className="text-system/30 hover:text-mentor transition-colors">
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                            <td className="py-2.5 pr-4 text-center text-system font-bold">{Number(s.total_score).toFixed(0)}</td>
+                            <td className="py-2.5 pr-4 text-center text-system/50">{s.rank ?? '—'}</td>
+                            <td className="py-2.5 text-center">
+                              {s.scholarship_granted
+                                ? <Award className="w-4 h-4 text-user mx-auto" />
+                                : <span className="text-system/20">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-[10px] text-system/30 uppercase tracking-wider">
+                    Edit mentor scores inline and click ✓ to save. Click "Grant Top 100" above to finalise rankings and apply lifetime subscriptions.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
