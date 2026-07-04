@@ -16,6 +16,10 @@ import LoginParent from '@/pages/LoginParent';
 import LoginStudent from '@/pages/LoginStudent';
 import Token from '@/pages/Token';
 import Abhaya from '@/pages/Abhaya';
+import ChoosePath from '@/pages/ChoosePath';
+import BragSheet from '@/pages/BragSheet';
+import KnowledgeFeed from '@/pages/KnowledgeFeed';
+import NewsFeed from '@/pages/NewsFeed';
 
 const queryClient = new QueryClient();
 
@@ -23,6 +27,10 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/choose-path" component={ChoosePath} />
+      <Route path="/brag-sheet" component={BragSheet} />
+      <Route path="/knowledge-feed" component={KnowledgeFeed} />
+      <Route path="/news-feed" component={NewsFeed} />
       <Route path="/architecture" component={Architecture} />
       <Route path="/pedagogy" component={Pedagogy} />
       <Route path="/blueprint" component={Blueprint} />
