@@ -77,4 +77,31 @@ router.post("/reset", async (req, res) => {
   }
 });
 
+// POST /api/shri/research/mentor — AI research roadmap generator
+router.post("/research/mentor", async (req, res) => {
+  try {
+    const data = await proxyPost("/research/mentor", req.body);
+    res.json(data);
+  } catch (err: unknown) {
+    logger.error({ err }, "Research mentor error");
+    const e = err as { status?: number };
+    res.status(e.status ?? 502).json({ error: "Research mentor unavailable" });
+  }
+});
+
+// GET /api/shri/research/search — academic course/topic search via Python
+router.get("/research/search", async (req, res) => {
+  try {
+    const { q, discipline } = req.query as { q?: string; discipline?: string };
+    const qs = new URLSearchParams();
+    if (q)          qs.set("q", q);
+    if (discipline) qs.set("discipline", discipline);
+    const data = await proxyGet(`/research/search${qs.toString() ? `?${qs}` : ""}`);
+    res.json(data);
+  } catch (err) {
+    logger.error({ err }, "Research search error");
+    res.status(502).json({ error: "Research search unavailable" });
+  }
+});
+
 export default router;

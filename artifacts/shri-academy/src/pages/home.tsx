@@ -177,6 +177,23 @@ export default function Home({ isMentorObserver }: { isMentorObserver?: boolean 
             </span>
           </div>
 
+          {/* Research Navigator Link */}
+          {!isMentorObserver && (
+            <a
+              href="/research"
+              onClick={(e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', '/research');
+                window.dispatchEvent(new Event('popstate'));
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 border border-user/40 text-user/70 hover:bg-user/10 hover:text-user transition-colors uppercase cursor-pointer"
+              data-testid="nav-research"
+            >
+              <Cpu className="w-3 h-3" />
+              <span>Research</span>
+            </a>
+          )}
+
           {/* Scholarship Link */}
           {!isMentorObserver && (
             <a

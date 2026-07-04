@@ -15,6 +15,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import time
 from pydantic import BaseModel, Field
+from routes.research import router as research_router
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -109,6 +110,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(research_router, prefix="/shri-api/research")
 
 # ─── LLM Factory ────────────────────────────────────────────────────────────────
 def get_llm() -> ChatOpenAI:

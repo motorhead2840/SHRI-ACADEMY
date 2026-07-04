@@ -3,6 +3,9 @@ import { getStripeSync } from "./stripeClient.js";
 import { initSubscriptionSchema } from "./lib/subscriptionDb.js";
 import { initSecopsSchema } from "./lib/secopsDb.js";
 import { initScholarshipSchema } from "./lib/scholarshipDb.js";
+import { initAcademicSchema } from "./lib/academicDb.js";
+import { seedAcademicData } from "./lib/academicSeed.js";
+import { isSeeded } from "./lib/academicDb.js";
 import { ensureSubscriptionProducts } from "./lib/stripeProducts.js";
 import app from "./app.js";
 import { logger } from "./lib/logger.js";
@@ -75,6 +78,23 @@ async function initScholarship() {
   }
 }
 void initScholarship();
+
+async function initAcademic() {
+  try {
+    await initAcademicSchema();
+    logger.info("Academic schema ready");
+    const alreadySeeded = await isSeeded();
+    if (!alreadySeeded) {
+      await seedAcademicData();
+      logger.info("Academic database seeded with OCW data");
+    } else {
+      logger.info("Academic database already seeded — skipping");
+    }
+  } catch (err) {
+    logger.error({ err }, "Academic init failed (non-fatal)");
+  }
+}
+void initAcademic();
 
 app.listen(port, (err) => {
   if (err) { logger.error({ err }, "Error listening"); process.exit(1); }

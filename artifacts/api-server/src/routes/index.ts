@@ -8,6 +8,7 @@ import subscriptionRouter from "./subscription.js";
 import mentorRouter from "./mentor.js";
 import secopRouter from "./secops.js";
 import scholarshipRouter from "./scholarship.js";
+import academicRouter from "./academic.js";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use("/subscription", subscriptionRouter);
 router.use("/mentor", mentorRouter);
 router.use("/secops", secopRouter);
 router.use("/scholarship", scholarshipRouter);
+router.use("/academic", academicRouter);
 
 export default router;
