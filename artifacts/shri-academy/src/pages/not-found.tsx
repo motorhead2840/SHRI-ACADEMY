@@ -1,23 +1,35 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { AlertCircle } from 'lucide-react';
+import { useLocation } from "wouter";
+import { Terminal } from "lucide-react";
 
 export default function NotFound() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">
-              404 Page Not Found
-            </h1>
-          </div>
+  const [location] = useLocation();
 
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center bg-black text-system">
+      <div className="max-w-md w-full border border-system/30 p-8 border-glow-system bg-black relative">
+        <div className="absolute top-0 left-0 w-full h-1 bg-system/20"></div>
+        
+        <div className="flex flex-col items-center text-center gap-6">
+          <Terminal className="w-16 h-16 text-system animate-pulse" />
+          
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tighter text-glow-system uppercase">
+              ERR_404
+            </h1>
+            <p className="text-system/60 uppercase tracking-widest text-sm">
+              Sector <span className="text-user">[{location}]</span> Not Found
+            </p>
+          </div>
+          
+          <p className="text-sm text-system/80 border-l-2 border-system pl-4 text-left font-mono">
+            CONNECTION_LOST
+            <br />
+            NO_SIGNAL_DETECTED
+            <br />
+            RETURN_TO_BASE_REQUIRED
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

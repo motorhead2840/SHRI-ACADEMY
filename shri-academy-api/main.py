@@ -10,10 +10,11 @@ from typing import Optional
 
 import chromadb
 from langchain_openai import ChatOpenAI
-from langchain.schema import SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+import time
+from pydantic import BaseModel, Field
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -111,19 +112,47 @@ app.add_middleware(
 
 # ─── LLM Factory ────────────────────────────────────────────────────────────────
 def get_llm() -> ChatOpenAI:
-    base_url = os.environ.get("AI_INTEGRATIONS_OPENAI_BASE_URL")
-    api_key = os.environ.get("AI_INTEGRATIONS_OPENAI_API_KEY", "placeholder")
-    if not base_url:
-        raise RuntimeError("AI_INTEGRATIONS_OPENAI_BASE_URL is not configured")
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not configured")
     return ChatOpenAI(
-        base_url=base_url,
         api_key=api_key,
-        model="gpt-5.4",
-        model_kwargs={"max_completion_tokens": 1024},
+        model="gpt-4o",
+        max_tokens=1024,
+        temperature=0.7,
     )
 
-# ─── Session State ───────────────────────────────────────────────────────────────
+# ─── Session State (bounded + TTL-evicted) ───────────────────────────────────────
+MAX_SESSIONS = 500
+SESSION_TTL_SECONDS = 3600  # 1 hour
+
 sessions: dict[str, dict] = {}
+
+def _evict_stale_sessions() -> None:
+    """Evict sessions older than SESSION_TTL_SECONDS, or cap to MAX_SESSIONS (oldest first)."""
+    now = time.time()
+    stale = [k for k, v in sessions.items() if now - v.get("last_active", 0) > SESSION_TTL_SECONDS]
+    for k in stale:
+        del sessions[k]
+    # If still over cap, evict oldest by last_active
+    if len(sessions) >= MAX_SESSIONS:
+        sorted_keys = sorted(sessions, key=lambda k: sessions[k].get("last_active", 0))
+        for k in sorted_keys[:len(sessions) - MAX_SESSIONS + 1]:
+            del sessions[k]
+
+def get_or_create_session(session_id: str) -> dict:
+    _evict_stale_sessions()
+    if session_id not in sessions and len(sessions) >= MAX_SESSIONS:
+        raise HTTPException(status_code=429, detail="Session limit reached. Try again later.")
+    session = sessions.setdefault(session_id, {
+        "frustration": 0,
+        "correct_streak": 0,
+        "history": [],
+        "message_count": 0,
+        "last_active": time.time(),
+    })
+    session["last_active"] = time.time()
+    return session
 
 FRUSTRATION_SIGNALS = [
     "don't get", "dont get", "confused", "don't understand", "dont understand",
@@ -204,8 +233,8 @@ def build_system_prompt(circuit: str, context: str) -> str:
 
 # ─── Pydantic Models ─────────────────────────────────────────────────────────────
 class ChatInput(BaseModel):
-    message: str
-    session_id: str = "default"
+    message: str = Field(..., min_length=1, max_length=4000)
+    session_id: str = Field(default="default", max_length=128)
 
 
 class ChatResponse(BaseModel):
@@ -243,13 +272,8 @@ async def health():
 
 @app.post("/shri-api/chat", response_model=ChatResponse)
 async def chat(req: ChatInput):
-    # Get or create session
-    session = sessions.setdefault(req.session_id, {
-        "frustration": 0,
-        "correct_streak": 0,
-        "history": [],
-        "message_count": 0,
-    })
+    # Get or create session (bounded, TTL-evicted)
+    session = get_or_create_session(req.session_id)
 
     session["message_count"] += 1
 

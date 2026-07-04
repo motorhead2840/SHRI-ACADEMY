@@ -44,7 +44,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ShriChatResponse"
+                $ref: "#/components/schemas/ShriMessage"
         "502":
           description: AI mentor backend unavailable
           content:
@@ -110,7 +110,7 @@ components:
         session_id:
           type: string
           description: Session identifier (defaults to "default")
-    ShriChatResponse:
+    ShriMessage:
       type: object
       required: [response, circuit, frustration_level, correct_streak, session_id, context_used]
       properties:
