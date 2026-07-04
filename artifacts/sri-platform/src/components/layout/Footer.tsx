@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { WalletButton } from "@/components/wallet/WalletButton";
 
 export function Footer() {
   return (
@@ -71,12 +72,9 @@ export function Footer() {
           <div>
             <h4 className="text-xs font-bold uppercase tracking-widest text-[#9CA3AF] mb-5">Community</h4>
             <p className="text-sm text-[#6B7280] leading-relaxed mb-5">
-              Join thousands of researchers, students, and lifelong learners building the future of education on-chain.
+              Join researchers, students, and lifelong learners building the future of education on-chain.
             </p>
-            <Link href="/login"
-              className="inline-flex items-center gap-2 bg-[#0F0F1A] text-white text-xs font-bold px-5 py-2.5 rounded-full tracking-wide hover:bg-black transition-all hover:scale-105">
-              CONNECT WALLET →
-            </Link>
+            <WalletButton variant="dark" />
           </div>
         </div>
 

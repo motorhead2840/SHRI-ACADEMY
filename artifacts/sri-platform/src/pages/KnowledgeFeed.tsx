@@ -1,12 +1,12 @@
 import { Bot, ThumbsUp, MessageSquare, Eye, ArrowUp, ArrowDown, ChevronRight, PenTool } from "lucide-react";
 
 const articles = [
-  { id: 1, author: "Elena R.", initials: "ER", pathway: "Academia", pathwayColor: "bg-blue-100 text-[#4040FF]", timeAgo: "2h ago", title: "Attention Mechanisms in Biological Neural Networks", excerpt: "Exploring the parallels between transformer attention heads and human prefrontal cortex firing patterns during focused tasks...", tags: ["Neuroscience", "AI Models", "Cognition"], meritScore: 97, meritVoters: "3 AI agents + 14 peers", rewardStatus: "Author earned: +480 SARA", rewardColor: "text-amber-600 bg-amber-50", likes: 124, comments: 32, views: "1.2k" },
-  { id: 2, author: "Marcus T.", initials: "MT", pathway: "Self-Dev", pathwayColor: "bg-orange-100 text-orange-600", timeAgo: "5h ago", title: "The Stoic Framework for Modern Productivity", excerpt: "Why the ancient philosophy of controlling only what you can provides a superior framework for modern deep work...", tags: ["Philosophy", "Deep Work", "Stoicism"], meritScore: 91, meritVoters: "3 AI agents + 12 peers", rewardStatus: "Author earned: +310 SARA", rewardColor: "text-amber-600 bg-amber-50", likes: 89, comments: 14, views: "850" },
-  { id: 3, author: "Sarah J.", initials: "SJ", pathway: "Academia", pathwayColor: "bg-blue-100 text-[#4040FF]", timeAgo: "1d ago", title: "Why AI Safety Needs Cognitive Science", excerpt: "Current alignment approaches focus on mathematical guarantees, but cognitive science offers a behavioral perspective we are missing...", tags: ["AI Safety", "Ethics", "CogSci"], meritScore: 92, meritVoters: "3 AI agents + 18 peers", rewardStatus: "Author earned: +340 SARA", rewardColor: "text-amber-600 bg-amber-50", likes: 210, comments: 45, views: "2.4k" },
-  { id: 4, author: "David K.", initials: "DK", pathway: "Self-Dev", pathwayColor: "bg-orange-100 text-orange-600", timeAgo: "1d ago", title: "Journaling as a Cognitive Reframing Tool", excerpt: "Analyzing the psychological mechanics of structured journaling and how it actively rewires stress responses over time...", tags: ["Psychology", "Habits", "Mental Health"], meritScore: 88, meritVoters: "2 AI agents + 5 peers", rewardStatus: "Voting closes in 2d 4h", rewardColor: "text-blue-600 bg-blue-50", likes: 45, comments: 8, views: "320" },
-  { id: 5, author: "Lisa W.", initials: "LW", pathway: "Academia", pathwayColor: "bg-blue-100 text-[#4040FF]", timeAgo: "2d ago", title: "Blockchain Governance and Academic Integrity", excerpt: "How decentralized ledgers could provide immutable verification for peer-reviewed research and eliminate citation cartels...", tags: ["Web3", "Research", "Governance"], meritScore: 85, meritVoters: "3 AI agents + 9 peers", rewardStatus: "Author earned: +180 SARA", rewardColor: "text-amber-600 bg-amber-50", likes: 76, comments: 21, views: "610" },
-  { id: 6, author: "James H.", initials: "JH", pathway: "Self-Dev", pathwayColor: "bg-orange-100 text-orange-600", timeAgo: "3d ago", title: "Flow State Engineering: A Practical Guide", excerpt: "Synthesizing Mihaly Csikszentmihalyi's original research with modern neurobiology to predictably trigger flow states...", tags: ["Performance", "Neurobiology", "Focus"], meritScore: 79, meritVoters: "1 AI agent + 4 peers", rewardStatus: "Voting closes in 1d 12h", rewardColor: "text-blue-600 bg-blue-50", likes: 112, comments: 18, views: "940" },
+  { id: 1, author: "Elena R.", initials: "ER", pathway: "Academia", pathwayColor: "bg-blue-100 text-[#4040FF]", timeAgo: "2h ago", title: "Attention Mechanisms in Biological Neural Networks", excerpt: "Exploring the parallels between transformer attention heads and human prefrontal cortex firing patterns during focused tasks...", tags: ["Neuroscience", "AI Models", "Cognition"], meritScore: 97, meritVoters: "3 AI agents + 14 peers", rewardStatus: "Merit verified · Earning SARA", rewardColor: "text-emerald-700 bg-emerald-50", likes: 124, comments: 32, views: "1.2k" },
+  { id: 2, author: "Marcus T.", initials: "MT", pathway: "Self-Dev", pathwayColor: "bg-orange-100 text-orange-600", timeAgo: "5h ago", title: "The Stoic Framework for Modern Productivity", excerpt: "Why the ancient philosophy of controlling only what you can provides a superior framework for modern deep work...", tags: ["Philosophy", "Deep Work", "Stoicism"], meritScore: 91, meritVoters: "3 AI agents + 12 peers", rewardStatus: "Merit verified · Earning SARA", rewardColor: "text-emerald-700 bg-emerald-50", likes: 89, comments: 14, views: "850" },
+  { id: 3, author: "Sarah J.", initials: "SJ", pathway: "Academia", pathwayColor: "bg-blue-100 text-[#4040FF]", timeAgo: "1d ago", title: "Why AI Safety Needs Cognitive Science", excerpt: "Current alignment approaches focus on mathematical guarantees, but cognitive science offers a behavioral perspective we are missing...", tags: ["AI Safety", "Ethics", "CogSci"], meritScore: 92, meritVoters: "3 AI agents + 18 peers", rewardStatus: "Merit verified · Earning SARA", rewardColor: "text-emerald-700 bg-emerald-50", likes: 210, comments: 45, views: "2.4k" },
+  { id: 4, author: "David K.", initials: "DK", pathway: "Self-Dev", pathwayColor: "bg-orange-100 text-orange-600", timeAgo: "1d ago", title: "Journaling as a Cognitive Reframing Tool", excerpt: "Analyzing the psychological mechanics of structured journaling and how it actively rewires stress responses over time...", tags: ["Psychology", "Habits", "Mental Health"], meritScore: 88, meritVoters: "2 AI agents + 5 peers", rewardStatus: "Peer review open · Vote to reward", rewardColor: "text-[#4040FF] bg-blue-50", likes: 45, comments: 8, views: "320" },
+  { id: 5, author: "Lisa W.", initials: "LW", pathway: "Academia", pathwayColor: "bg-blue-100 text-[#4040FF]", timeAgo: "2d ago", title: "Blockchain Governance and Academic Integrity", excerpt: "How decentralized ledgers could provide immutable verification for peer-reviewed research and eliminate citation cartels...", tags: ["Web3", "Research", "Governance"], meritScore: 85, meritVoters: "3 AI agents + 9 peers", rewardStatus: "Merit verified · Earning SARA", rewardColor: "text-emerald-700 bg-emerald-50", likes: 76, comments: 21, views: "610" },
+  { id: 6, author: "James H.", initials: "JH", pathway: "Self-Dev", pathwayColor: "bg-orange-100 text-orange-600", timeAgo: "3d ago", title: "Flow State Engineering: A Practical Guide", excerpt: "Synthesizing Mihaly Csikszentmihalyi's original research with modern neurobiology to predictably trigger flow states...", tags: ["Performance", "Neurobiology", "Focus"], meritScore: 79, meritVoters: "1 AI agent + 4 peers", rewardStatus: "Peer review open · Vote to reward", rewardColor: "text-[#4040FF] bg-blue-50", likes: 112, comments: 18, views: "940" },
 ];
 
 const comments = [
@@ -25,7 +25,7 @@ export default function KnowledgeFeed() {
           <div className="max-w-2xl">
             <h1 className="text-4xl md:text-5xl font-black mb-4" style={{ fontFamily: "'Inter', sans-serif" }}>Knowledge Feed</h1>
             <p className="text-[#6B7280] text-lg leading-relaxed">
-              Articles written by SRI learners, merit-scored by AI agents and peer reviewers. Top articles earn SARA.
+              Articles written by SRI learners, merit-scored by AI agents and peer reviewers. High-merit articles earn SARA rewards.
             </p>
           </div>
           <div className="flex flex-col items-end gap-4">
@@ -72,11 +72,16 @@ export default function KnowledgeFeed() {
                       <div className="text-sm font-black">{article.meritScore} <span className="text-gray-400 font-medium">/ 100</span></div>
                     </div>
                     <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden mb-2">
-                      <div className={`h-full rounded-full ${article.meritScore >= 85 ? 'bg-emerald-500' : article.meritScore >= 60 ? 'bg-amber-400' : 'bg-red-500'}`} style={{ width: `${article.meritScore}%` }} />
+                      <div
+                        className={`h-full rounded-full ${article.meritScore >= 85 ? 'bg-emerald-500' : article.meritScore >= 60 ? 'bg-amber-400' : 'bg-red-500'}`}
+                        style={{ width: `${article.meritScore}%` }}
+                      />
                     </div>
                     <div className="text-[11px] text-[#6B7280]">Voted by {article.meritVoters}</div>
                   </div>
-                  <div className={`text-xs font-semibold px-3 py-2 rounded-lg mb-4 text-center ${article.rewardColor}`}>{article.rewardStatus}</div>
+                  <div className={`text-xs font-semibold px-3 py-2 rounded-lg mb-4 text-center ${article.rewardColor}`}>
+                    {article.rewardStatus}
+                  </div>
                 </div>
               </div>
               <div className="bg-gray-50 border-t border-gray-100 p-4 px-6 flex justify-between items-center text-[#6B7280]">
@@ -125,7 +130,7 @@ export default function KnowledgeFeed() {
             </div>
             <div className="mt-8 pt-6 border-t border-gray-100">
               <p className="text-xs italic text-[#6B7280] mb-4">
-                * Comment votes are separate from article merit scoring. Merit scoring is handled by AI agents and designated peer reviewers.
+                * Comment votes are separate from article merit scoring. Merit scoring is handled by AI agents and designated peer reviewers. SARA rewards are distributed based on merit scores, not comment votes.
               </p>
               <div className="flex gap-4">
                 <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0 flex items-center justify-center text-gray-600 font-bold text-sm">ME</div>

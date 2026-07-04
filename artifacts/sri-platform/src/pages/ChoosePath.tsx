@@ -115,7 +115,7 @@ export default function ChoosePath() {
 
             <div className="relative border-t border-orange-900/5 bg-white/40 py-5 px-10 md:px-12 z-10">
               <p className="text-sm font-medium text-orange-900/60 tracking-wide text-center">
-                38,000 Learners · 500+ Tracks · $420K SARA Earned
+                38,000 Learners · 500+ Learning Tracks
               </p>
             </div>
           </div>

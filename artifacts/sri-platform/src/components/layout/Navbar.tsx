@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import { ExternalLink, Menu, X } from "lucide-react";
+import { WalletButton } from "@/components/wallet/WalletButton";
 
 const links = [
   { href: "/",               label: "Home" },
@@ -9,6 +10,7 @@ const links = [
   { href: "/news-feed",      label: "News" },
   { href: "/token",          label: "Token" },
   { href: "/abhaya",         label: "Safety" },
+  { href: "/brag-sheet",     label: "Brag Sheet" },
 ];
 
 export function Navbar() {
@@ -36,14 +38,6 @@ export function Navbar() {
               {l.label}
             </Link>
           ))}
-          <Link href="/brag-sheet"
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-              location === "/brag-sheet"
-                ? "text-[#4040FF] bg-[#4040FF]/10 font-semibold"
-                : "text-[#6B7280] hover:text-[#0F0F1A] hover:bg-black/5"
-            }`}>
-            Brag Sheet
-          </Link>
           <a href="#" className="px-3 py-1.5 rounded-lg text-sm font-medium text-[#6B7280] hover:text-[#0F0F1A] hover:bg-black/5 flex items-center gap-1 transition-colors">
             Community <ExternalLink className="w-3 h-3" />
           </a>
@@ -54,15 +48,16 @@ export function Navbar() {
           <Link href="/login" className="text-sm font-medium text-[#6B7280] hover:text-[#0F0F1A] transition-colors">
             Sign In
           </Link>
-          <Link href="/login"
-            className="bg-[#0F0F1A] hover:bg-black text-white text-xs font-bold px-5 py-2.5 rounded-full tracking-wide transition-all hover:scale-105">
-            CONNECT WALLET
-          </Link>
+          <WalletButton variant="dark" />
         </div>
 
         {/* Mobile hamburger */}
-        <button onClick={() => setOpen(!open)} aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open}
-          className="lg:hidden ml-auto p-2 rounded-lg hover:bg-black/5 transition-colors text-[#0F0F1A]">
+        <button
+          onClick={() => setOpen(!open)}
+          aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
+          className="lg:hidden ml-auto p-2 rounded-lg hover:bg-black/5 transition-colors text-[#0F0F1A]"
+        >
           {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
@@ -71,7 +66,7 @@ export function Navbar() {
       {open && (
         <div className="lg:hidden border-t border-[#E5E7EB] bg-[#EEF2FF]/98">
           <div className="p-4 flex flex-col gap-1">
-            {[...links, { href: "/brag-sheet", label: "Brag Sheet" }].map(l => (
+            {links.map(l => (
               <Link key={l.href} href={l.href} onClick={() => setOpen(false)}
                 className={`px-4 py-3 rounded-xl font-medium text-sm transition-all ${
                   location === l.href
@@ -82,10 +77,7 @@ export function Navbar() {
               </Link>
             ))}
             <div className="pt-3 border-t border-[#E5E7EB] mt-2">
-              <Link href="/login" onClick={() => setOpen(false)}
-                className="w-full block text-center py-3 rounded-full font-bold text-sm bg-[#0F0F1A] text-white hover:bg-black transition-colors">
-                CONNECT WALLET
-              </Link>
+              <WalletButton variant="dark" className="w-full justify-center" />
             </div>
           </div>
         </div>

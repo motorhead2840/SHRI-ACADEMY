@@ -4,6 +4,8 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { Layout } from '@/components/layout/Layout';
+import { WalletProvider } from '@/context/WalletContext';
+import { WalletModal } from '@/components/wallet/WalletModal';
 
 import Home from '@/pages/Home';
 import Architecture from '@/pages/Architecture';
@@ -50,11 +52,15 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Layout>
-            <Router />
-          </Layout>
-        </WouterRouter>
+        <WalletProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <Layout>
+              <Router />
+            </Layout>
+          </WouterRouter>
+          {/* Global wallet modal — rendered outside Layout so it always overlays correctly */}
+          <WalletModal />
+        </WalletProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

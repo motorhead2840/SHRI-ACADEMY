@@ -1,5 +1,6 @@
 import { Link } from "wouter";
-import { Key, ArrowRight, ExternalLink } from "lucide-react";
+import { ArrowRight, Key } from "lucide-react";
+import { WalletButton } from "@/components/wallet/WalletButton";
 
 export default function Home() {
   return (
@@ -58,19 +59,15 @@ export default function Home() {
               Connect your web3 identity to claim your learner keys and participate in on-chain peer review.
             </p>
 
-            <button className="w-full bg-[#0F0F1A] text-white py-3 rounded-full text-xs font-bold tracking-wide hover:bg-[#4040FF] transition-colors">
-              INSTANT WALLET
-            </button>
+            <WalletButton variant="dark" className="w-full justify-center" />
           </div>
         </div>
 
         {/* Right Content - Visual */}
         <div className="flex-1 relative w-full flex justify-center lg:justify-end mt-12 lg:mt-0">
-          {/* Decorative Circles */}
           <div className="absolute -top-12 -right-8 w-64 h-64 bg-[#4040FF] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" />
           <div className="absolute -bottom-8 -left-8 w-48 h-48 bg-[#0D9488] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style={{ animationDelay: '1s' }} />
 
-          {/* Main Image */}
           <div className="relative z-10 w-full max-w-lg aspect-[4/5] rounded-[2.5rem] overflow-hidden shadow-2xl shadow-[#4040FF]/10 border-[8px] border-white/60 transform rotate-1 hover:rotate-0 transition-transform duration-500">
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent z-10" />
             <img
@@ -80,16 +77,14 @@ export default function Home() {
             />
           </div>
         </div>
-
       </main>
 
       {/* Stats row */}
       <section className="bg-white border-y border-[#E5E7EB] py-10">
-        <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+        <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-3 gap-6 text-center">
           {[
             { value: "38,000+", label: "Active Learners" },
             { value: "14,000",  label: "Research Papers" },
-            { value: "$420K",   label: "SARA Distributed" },
             { value: "180+",    label: "Institutions" },
           ].map(s => (
             <div key={s.label}>
@@ -168,7 +163,7 @@ export default function Home() {
               </Link>
             </div>
             <div className="border-t border-orange-900/5 bg-white/40 py-4 px-10 text-sm text-orange-900/60 text-center">
-              38,000 Learners · 500+ Tracks · $420K SARA Earned
+              38,000 Learners · 500+ Learning Tracks
             </div>
           </div>
         </div>

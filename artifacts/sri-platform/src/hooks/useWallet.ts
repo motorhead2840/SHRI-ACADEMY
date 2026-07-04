@@ -1,9 +1,9 @@
 /**
- * useWallet — MetaMask / EIP-1193 wallet hook for the SARA token interface.
- * Uses ethers v6 BrowserProvider.
+ * useWallet — multi-wallet EIP-1193 hook for the SARA token interface.
+ * Supports MetaMask, Coinbase, Rabby, Brave, Rainbow, Trust, and any injected provider.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ethers } from "ethers";
 import {
   SARA_ABI,
@@ -13,6 +13,7 @@ import {
   formatSara,
   shortenAddress,
 } from "@/lib/sara";
+import type { EthereumProvider } from "@/lib/walletProviders";
 
 export type WalletStatus =
   | "idle"
@@ -24,6 +25,7 @@ export type WalletStatus =
 
 export interface WalletState {
   status: WalletStatus;
+  walletType: string | null;
   address: string | null;
   shortAddress: string | null;
   ethBalance: string | null;
@@ -33,25 +35,17 @@ export interface WalletState {
   delegate: string | null;
   chainId: number | null;
   errorMessage: string | null;
-  // Actions
-  connect: () => Promise<void>;
+  // Actions — connectWith returns true on success, false on failure
+  connectWith: (provider: EthereumProvider, name: string) => Promise<boolean>;
   disconnect: () => void;
   switchToSepolia: () => Promise<void>;
   delegateTo: (address: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
-declare global {
-  interface Window {
-    ethereum?: import("ethers").Eip1193Provider & {
-      on: (event: string, listener: (...args: unknown[]) => void) => void;
-      removeListener: (event: string, listener: (...args: unknown[]) => void) => void;
-    };
-  }
-}
-
 export function useWallet(): WalletState {
   const [status, setStatus] = useState<WalletStatus>("idle");
+  const [walletType, setWalletType] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [ethBalance, setEthBalance] = useState<string | null>(null);
   const [saraBalance, setSaraBalance] = useState<string | null>(null);
@@ -61,7 +55,10 @@ export function useWallet(): WalletState {
   const [chainId, setChainId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // ── Fetch balances for a connected address ──────────────────────────────────
+  // Store the active raw provider for switch/delegate/refresh
+  const rawProviderRef = useRef<EthereumProvider | null>(null);
+
+  // ── Fetch balances ──────────────────────────────────────────────────────────
 
   const fetchBalances = useCallback(async (addr: string, provider: ethers.BrowserProvider) => {
     try {
@@ -79,7 +76,6 @@ export function useWallet(): WalletState {
         return;
       }
 
-      // Read SARA balance + voting power if contract is deployed
       if (SARA_CONTRACT_ADDRESS) {
         const contract = new ethers.Contract(SARA_CONTRACT_ADDRESS, SARA_ABI, provider);
         const [balance, votes, delegatee] = await Promise.allSettled([
@@ -87,60 +83,51 @@ export function useWallet(): WalletState {
           contract.getVotes(addr) as Promise<bigint>,
           contract.delegates(addr) as Promise<string>,
         ]);
-
         if (balance.status === "fulfilled") {
           setSaraBalanceRaw(balance.value);
           setSaraBalance(formatSara(balance.value));
         }
-        if (votes.status === "fulfilled") {
-          setVotingPower(formatSara(votes.value));
-        }
-        if (delegatee.status === "fulfilled") {
-          setDelegate(delegatee.value);
-        }
+        if (votes.status === "fulfilled") setVotingPower(formatSara(votes.value));
+        if (delegatee.status === "fulfilled") setDelegate(delegatee.value);
       } else {
-        // Contract not yet deployed — show placeholder
         setSaraBalance("—");
         setVotingPower("—");
       }
 
       setStatus("connected");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to fetch balances";
-      // Clear stale values so the UI does not show outdated data after a failure
       setEthBalance(null);
       setSaraBalance(null);
       setSaraBalanceRaw(null);
       setVotingPower(null);
       setDelegate(null);
-      setErrorMessage(msg);
+      setErrorMessage(err instanceof Error ? err.message : "Failed to fetch balances");
       setStatus("error");
     }
   }, []);
 
-  // ── Connect wallet ──────────────────────────────────────────────────────────
+  // ── Connect with a specific provider ──────────────────────────────────────
 
-  const connect = useCallback(async () => {
-    if (!window.ethereum) {
-      setStatus("not_installed");
-      setErrorMessage("MetaMask is not installed. Please install it to continue.");
-      return;
-    }
-
+  const connectWith = useCallback(async (rawProvider: EthereumProvider, name: string): Promise<boolean> => {
     setStatus("connecting");
     setErrorMessage(null);
+    setWalletType(name);
+    rawProviderRef.current = rawProvider;
 
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new ethers.BrowserProvider(rawProvider);
       await provider.send("eth_requestAccounts", []);
       const signer = await provider.getSigner();
       const addr = await signer.getAddress();
       setAddress(addr);
       await fetchBalances(addr, provider);
+      return true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Connection failed";
       setStatus("error");
-      setErrorMessage(msg);
+      setWalletType(null);
+      rawProviderRef.current = null;
+      setErrorMessage(err instanceof Error ? err.message : "Connection failed");
+      return false;
     }
   }, [fetchBalances]);
 
@@ -148,6 +135,7 @@ export function useWallet(): WalletState {
 
   const disconnect = useCallback(() => {
     setStatus("idle");
+    setWalletType(null);
     setAddress(null);
     setEthBalance(null);
     setSaraBalance(null);
@@ -156,24 +144,19 @@ export function useWallet(): WalletState {
     setDelegate(null);
     setChainId(null);
     setErrorMessage(null);
+    rawProviderRef.current = null;
   }, []);
 
   // ── Switch to Sepolia ───────────────────────────────────────────────────────
 
   const switchToSepolia = useCallback(async () => {
-    if (!window.ethereum) return;
+    const rp = rawProviderRef.current;
+    if (!rp) return;
     try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: SEPOLIA_NETWORK_PARAMS.chainId }],
-      } as Parameters<typeof window.ethereum.request>[0]);
+      await rp.request({ method: "wallet_switchEthereumChain", params: [{ chainId: SEPOLIA_NETWORK_PARAMS.chainId }] });
     } catch (err: unknown) {
-      // Chain not added to MetaMask — add it
       if (typeof err === "object" && err !== null && "code" in err && (err as { code: number }).code === 4902) {
-        await window.ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [SEPOLIA_NETWORK_PARAMS],
-        } as Parameters<typeof window.ethereum.request>[0]);
+        await rp.request({ method: "wallet_addEthereumChain", params: [SEPOLIA_NETWORK_PARAMS] });
       }
     }
   }, []);
@@ -181,8 +164,9 @@ export function useWallet(): WalletState {
   // ── Delegate votes ──────────────────────────────────────────────────────────
 
   const delegateTo = useCallback(async (delegateeAddr: string) => {
-    if (!window.ethereum || !SARA_CONTRACT_ADDRESS) return;
-    const provider = new ethers.BrowserProvider(window.ethereum);
+    const rp = rawProviderRef.current;
+    if (!rp || !SARA_CONTRACT_ADDRESS) return;
+    const provider = new ethers.BrowserProvider(rp);
     const signer = await provider.getSigner();
     const contract = new ethers.Contract(SARA_CONTRACT_ADDRESS, SARA_ABI, signer);
     const tx = await (contract.delegate as (addr: string) => Promise<ethers.ContractTransactionResponse>)(delegateeAddr);
@@ -193,15 +177,17 @@ export function useWallet(): WalletState {
   // ── Refresh ─────────────────────────────────────────────────────────────────
 
   const refresh = useCallback(async () => {
-    if (!address || !window.ethereum) return;
-    const provider = new ethers.BrowserProvider(window.ethereum);
+    const rp = rawProviderRef.current;
+    if (!address || !rp) return;
+    const provider = new ethers.BrowserProvider(rp);
     await fetchBalances(address, provider);
   }, [address, fetchBalances]);
 
-  // ── Listen for account/chain changes ────────────────────────────────────────
+  // ── Listen for account/chain changes (on the active provider) ───────────────
 
   useEffect(() => {
-    if (!window.ethereum) return;
+    const rp = rawProviderRef.current;
+    if (!rp?.on) return;
 
     const handleAccountsChanged = (accounts: unknown) => {
       const accs = accounts as string[];
@@ -209,26 +195,25 @@ export function useWallet(): WalletState {
         disconnect();
       } else {
         setAddress(accs[0]);
-        const provider = new ethers.BrowserProvider(window.ethereum!);
+        const provider = new ethers.BrowserProvider(rp);
         fetchBalances(accs[0], provider);
       }
     };
 
-    const handleChainChanged = () => {
-      window.location.reload();
-    };
+    const handleChainChanged = () => window.location.reload();
 
-    window.ethereum.on("accountsChanged", handleAccountsChanged);
-    window.ethereum.on("chainChanged", handleChainChanged);
+    rp.on("accountsChanged", handleAccountsChanged);
+    rp.on("chainChanged", handleChainChanged);
 
     return () => {
-      window.ethereum?.removeListener("accountsChanged", handleAccountsChanged);
-      window.ethereum?.removeListener("chainChanged", handleChainChanged);
+      rp.removeListener?.("accountsChanged", handleAccountsChanged);
+      rp.removeListener?.("chainChanged", handleChainChanged);
     };
-  }, [disconnect, fetchBalances]);
+  }, [address, disconnect, fetchBalances]);
 
   return {
     status,
+    walletType,
     address,
     shortAddress: address ? shortenAddress(address) : null,
     ethBalance,
@@ -238,7 +223,7 @@ export function useWallet(): WalletState {
     delegate,
     chainId,
     errorMessage,
-    connect,
+    connectWith,
     disconnect,
     switchToSepolia,
     delegateTo,
