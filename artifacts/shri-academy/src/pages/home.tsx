@@ -177,6 +177,23 @@ export default function Home({ isMentorObserver }: { isMentorObserver?: boolean 
             </span>
           </div>
 
+          {/* Marketplace Link */}
+          {!isMentorObserver && (
+            <a
+              href="/marketplace"
+              onClick={(e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', '/marketplace');
+                window.dispatchEvent(new Event('popstate'));
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 border border-system/40 text-system/70 hover:bg-system/10 hover:text-system transition-colors uppercase cursor-pointer"
+              data-testid="nav-marketplace"
+            >
+              <ShieldAlert className="w-3 h-3" />
+              <span>Market</span>
+            </a>
+          )}
+
           {/* Subscribe Link */}
           {!isMentorObserver && (
             <a 
