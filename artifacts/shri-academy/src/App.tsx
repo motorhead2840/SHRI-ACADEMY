@@ -14,12 +14,12 @@ const queryClient = new QueryClient();
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/subscribe" component={Subscribe} />
-      <Route path="/marketplace" component={Marketplace} />
-      <Route path="/mentor/login" component={MentorLogin} />
-      <Route path="/mentor" component={MentorDashboard} />
-      <Route component={NotFound} />
+      <Route path="/">{() => <Home />}</Route>
+      <Route path="/subscribe">{() => <Subscribe />}</Route>
+      <Route path="/marketplace">{() => <Marketplace />}</Route>
+      <Route path="/mentor/login">{() => <MentorLogin />}</Route>
+      <Route path="/mentor">{() => <MentorDashboard />}</Route>
+      <Route>{() => <NotFound />}</Route>
     </Switch>
   );
 }

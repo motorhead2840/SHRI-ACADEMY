@@ -57,3 +57,13 @@ Outbox table `secops_cyberdemon_events`. Cyberdemon polls `GET /api/secops/cyber
 3. Collect + label ≥50 items via Mentor Portal SecOps tab
 4. Export then trigger: `/api/secops/ragethesage/export` then `/api/secops/ragethesage/train`
 5. Approve model in SageMaker Console → Model Registry → ragethesage → set Approved
+
+## NVIDIA Confidential Computing — planned L1 security layer
+- Source: nvidia.com/en-us/data-center/solutions/confidential-computing/
+- Target workload: RageSage SageMaker training job
+- H100 instance for CC-ON: `p5.48xlarge` (H100 SXM5) — do NOT use p4d (A100)
+- CC-ON encrypts all HBM memory; NVLink/PCIe data path encrypted in transit
+- Remote attestation via RIM-bundle + OCSP — verifiable by Shri Academy as data owner
+- Operator-blind: AWS SageMaker control plane cannot access training computation
+- Checklist for integration is in SECURITY_INFRA tab of Mentor Portal (mentor dashboard)
+- F1 quality gate threshold = 0.78 (consistent across Terraform, Airflow DAG, and mentor dashboard)
