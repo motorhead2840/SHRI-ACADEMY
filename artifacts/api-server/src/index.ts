@@ -1,6 +1,7 @@
 import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient.js";
 import { initSubscriptionSchema } from "./lib/subscriptionDb.js";
+import { initSecopsSchema } from "./lib/secopsDb.js";
 import { ensureSubscriptionProducts } from "./lib/stripeProducts.js";
 import app from "./app.js";
 import { logger } from "./lib/logger.js";
@@ -53,6 +54,16 @@ async function initSubscription() {
 
 await initSubscription();
 await initStripe();
+
+async function initSecops() {
+  try {
+    await initSecopsSchema();
+    logger.info("SecOps schema ready");
+  } catch (err) {
+    logger.error({ err }, "SecOps schema init failed (non-fatal)");
+  }
+}
+void initSecops();
 
 app.listen(port, (err) => {
   if (err) { logger.error({ err }, "Error listening"); process.exit(1); }

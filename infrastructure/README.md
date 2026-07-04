@@ -304,6 +304,104 @@ await kafka.paymentCrypto({ email, tx_hash, currency, amount_crypto, tier });
 | `sri-sara-event-indexer` | EventBridge (5 min) | Etherscan → Kafka + OpenSearch |
 | `sri-satellite-kinesis-bridge` | Kinesis stream | Ground Station frames → Kafka + S3 |
 
+## SecOps Data Collection Server & RageSage
+
+### Architecture
+
+```
+User / Chat / API input
+        │
+        ▼
+POST /api/secops/ingest
+        │
+        ▼
+contentIndex.ts ─── Three-tier scoring:
+  ├── Profanity Score   (0–1) ── explicit slurs, hate speech
+  ├── Vulgarity Score   (0–1) ── crude/degrading language
+  └── PMI Score         (0–1) ── Perverted Mentation Index:
+                                  grooming, predatory framing,
+                                  dehumanisation, violent ideation,
+                                  radicalisation signals
+        │
+        ├── Tier CLEAN / LOW   ── discard (5% sampled for training diversity)
+        ├── Tier MEDIUM        ── stored → secops_raw_content
+        ├── Tier HIGH          ── stored + Cyberdemon event queued
+        └── Tier CRITICAL      ── stored + Cyberdemon event queued + request blocked
+
+secops_raw_content (PostgreSQL)
+secops_training_labels (human-reviewed)
+secops_blocked_patterns (dynamic regex blocklist, reloaded every 10 min)
+secops_cyberdemon_events (dispatch queue for Cyberdemon SecOps)
+
+Mentor Portal
+  ├── GET  /api/secops/flagged           ── review queue
+  ├── POST /api/secops/label/:id         ── label for RageSage training
+  ├── POST /api/secops/pattern           ── add dynamic blocklist pattern
+  ├── GET  /api/secops/stats             ── aggregate risk dashboard
+  ├── GET  /api/secops/cyberdemon/queue  ── pending Cyberdemon events
+  ├── POST /api/secops/cyberdemon/flush  ── mark dispatched
+  ├── POST /api/secops/ragethesage/export ── export labels → S3
+  └── POST /api/secops/ragethesage/train  ── trigger SageMaker pipeline
+```
+
+### RageSage SageMaker Pipeline
+
+| Resource | Detail |
+|----------|--------|
+| ECR repo | `{project}/ragethesage-trainer` — HuggingFace DistilBERT fine-tuning container |
+| S3 bucket | `{project}-{env}-secops` — training data NDJSON + model artefacts |
+| Feature Group | `secops-content-index` — scored + labelled content features |
+| Pipeline | `ragethesage` — 5-step: DataPrep → Training → Evaluation → QualityGate (F1 ≥ 0.78) → Register |
+| Training instance | `ml.g4dn.xlarge` (T4 GPU) |
+| Model Package Group | `ragethesage` — versions with `PendingManualApproval` status |
+| Inference endpoint | `{project}-ragethesage-{env}` — async inference, 10 concurrent max |
+| Schedule | EventBridge every Sunday 02:00 UTC |
+| Airflow DAG | `ragethesage_export_and_train` — Sunday 03:00 UTC, gates on ≥50 labelled rows |
+
+### Required environment variables (api-server)
+
+```bash
+RAGETHESAGE_PIPELINE_ARN   # from terraform output ragethesage_pipeline_arn
+SECOPS_S3_BUCKET           # from terraform output secops_s3_bucket
+```
+
+Both are also stored in SSM:
+- `/{project}/{env}/ragethesage/pipeline_arn`
+- `/{project}/{env}/secops/s3_bucket`
+
+### Cyberdemon integration
+
+`secops_cyberdemon_events` table acts as a durable outbox. Cyberdemon's SecOps pipeline polls `GET /api/secops/cyberdemon/queue` and flushes processed events via `POST /api/secops/cyberdemon/flush`. Events carry severity (`MEDIUM`/`HIGH`/`CRITICAL`), `event_type` (`CRITICAL_PMI` | `HIGH_RISK_CONTENT` | `PATTERN_BREACH`), and the full scoring payload for downstream SIEM ingestion.
+
+### RageSage first-time setup
+
+After `terraform apply`:
+
+1. Build and push the training container:
+   ```bash
+   # Build from infrastructure/docker/ragethesage/
+   docker build -t ragethesage-trainer .
+   aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_URI
+   docker tag ragethesage-trainer:latest $ECR_URI:latest
+   docker push $ECR_URI:latest
+   ```
+
+2. Set the env vars on the ECS task definition:
+   ```bash
+   RAGETHESAGE_PIPELINE_ARN=$(terraform output -raw ragethesage_pipeline_arn)
+   SECOPS_S3_BUCKET=$(terraform output -raw secops_s3_bucket)
+   ```
+
+3. Collect and label at least 50 content items via the Mentor Portal SecOps tab.
+
+4. Trigger first training run:
+   ```bash
+   curl -X POST /api/secops/ragethesage/export -H "Authorization: Bearer $MENTOR_TOKEN"
+   curl -X POST /api/secops/ragethesage/train  -H "Authorization: Bearer $MENTOR_TOKEN"
+   ```
+
+5. Approve the registered model in SageMaker Console → Model Registry → ragethesage → set approval to `Approved`.
+
 ## Post-Outpost Delivery Checklist
 
 When AWS delivers and activates the Outpost rack:
