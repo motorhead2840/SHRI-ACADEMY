@@ -1,12 +1,74 @@
 /**
  * Shri Academy AI Mentor Proxy Routes
  * Forwards /api/shri/* → Python FastAPI at localhost:8000/shri-api/*
+ *
+ * TEXT + DRAWING ONLY — file/image/document uploads are explicitly forbidden.
+ * Any attempt to send multipart data, base64 images, or binary content is
+ * rejected at this layer before it ever reaches the Python backend.
  */
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
 const PYTHON_BASE = "http://localhost:8000/shri-api";
+
+// ─── Data-URI / base64-blob pattern ──────────────────────────────────────────
+// Catches: data:image/..., data:application/pdf, data:application/octet-stream
+// and raw base64 blobs embedded in JSON strings (≥256 chars of base64 chars).
+const DATA_URI_RE  = /data:[a-z]+\/[a-z0-9.+-]+;base64,/i;
+const RAW_B64_RE   = /[A-Za-z0-9+/]{256,}={0,2}/;          // suspicious blob
+const FILENAME_RE  = /\.(jpe?g|png|gif|webp|svg|pdf|docx?|xlsx?|pptx?|zip|tar|gz|mp4|mov|avi|mp3|wav)\b/i;
+
+/**
+ * Enforce text-only on every POST that goes to the AI mentor.
+ * Rejects: multipart/form-data, any base64 image / document embedded in JSON,
+ *          filenames in the payload, and bodies larger than 32 KB.
+ */
+function textOnlyGuard(req: Request, res: Response, next: NextFunction): void {
+  // 1. Block multipart (file upload) Content-Type
+  const ct = (req.headers["content-type"] ?? "").toLowerCase();
+  if (ct.includes("multipart/form-data") || ct.includes("application/octet-stream")) {
+    res.status(415).json({
+      error: "Unsupported media type — text and drawing only. File uploads are not allowed.",
+    });
+    return;
+  }
+
+  // 2. Inspect the parsed JSON body for forbidden content
+  const bodyStr = JSON.stringify(req.body ?? {});
+
+  // 2a. data: URIs (embedded images / docs)
+  if (DATA_URI_RE.test(bodyStr)) {
+    res.status(422).json({
+      error: "Image and document uploads are not allowed. Use the drawing pad for diagrams.",
+    });
+    return;
+  }
+
+  // 2b. Raw base64 blobs (e.g. someone encoding a file manually)
+  if (RAW_B64_RE.test(bodyStr)) {
+    res.status(422).json({
+      error: "Binary or encoded file content is not allowed in the mentor chat.",
+    });
+    return;
+  }
+
+  // 2c. Filename-like strings (pdf/docx/jpeg etc.)
+  if (FILENAME_RE.test(bodyStr)) {
+    res.status(422).json({
+      error: "File references are not allowed. Describe your question in text instead.",
+    });
+    return;
+  }
+
+  // 3. Hard body-size cap (belt-and-suspenders; express already has limit middleware)
+  if (bodyStr.length > 32_768) {
+    res.status(413).json({ error: "Message too large." });
+    return;
+  }
+
+  next();
+}
 
 async function proxyGet(path: string) {
   const res = await fetch(`${PYTHON_BASE}${path}`);
@@ -41,10 +103,12 @@ router.get("/health", async (_req, res) => {
   }
 });
 
-// POST /api/shri/chat
-router.post("/chat", async (req, res) => {
+// POST /api/shri/chat  — text + drawing pad only
+router.post("/chat", textOnlyGuard, async (req, res) => {
   try {
-    const data = await proxyPost("/chat", req.body);
+    // Only forward the fields the Python model expects — drop everything else
+    const { message, session_id } = req.body as Record<string, unknown>;
+    const data = await proxyPost("/chat", { message, session_id });
     res.json(data);
   } catch (err: unknown) {
     logger.error({ err }, "Shri chat error");
@@ -77,10 +141,12 @@ router.post("/reset", async (req, res) => {
   }
 });
 
-// POST /api/shri/research/mentor — AI research roadmap generator
-router.post("/research/mentor", async (req, res) => {
+// POST /api/shri/research/mentor — text only; no image context
+router.post("/research/mentor", textOnlyGuard, async (req, res) => {
   try {
-    const data = await proxyPost("/research/mentor", req.body);
+    // Only forward the three text fields the Python model expects
+    const { interest, user_email, background } = req.body as Record<string, unknown>;
+    const data = await proxyPost("/research/mentor", { interest, user_email, background });
     res.json(data);
   } catch (err: unknown) {
     logger.error({ err }, "Research mentor error");

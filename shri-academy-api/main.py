@@ -11,10 +11,51 @@ from typing import Optional
 import chromadb
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+import re as _re
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import JSONResponse
 import time
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# ─── Text-only content policy ────────────────────────────────────────────────
+# Students use the drawing pad and plain text. No file, image, or document
+# content is permitted in any field sent to the AI backend.
+
+_DATA_URI = _re.compile(r"data:[a-z]+/[a-z0-9.+\-]+;base64,", _re.IGNORECASE)
+_RAW_B64  = _re.compile(r"[A-Za-z0-9+/]{256,}={0,2}")
+_FILENAME = _re.compile(
+    r"\.(jpe?g|png|gif|webp|svg|pdf|docx?|xlsx?|pptx?|zip|tar|gz|mp4|mov|avi|mp3|wav)\b",
+    _re.IGNORECASE,
+)
+
+
+def _enforce_text_only(value: str, field_name: str = "message") -> str:
+    """Raise ValueError if the string contains image/document/binary content."""
+    if _DATA_URI.search(value):
+        raise ValueError(
+            f"{field_name}: embedded images and documents are not allowed. "
+            "Use the drawing pad for diagrams."
+        )
+    if _RAW_B64.search(value):
+        raise ValueError(f"{field_name}: binary or encoded file content is not allowed.")
+    if _FILENAME.search(value):
+        raise ValueError(f"{field_name}: file references are not allowed. Describe your question in text.")
+    return value
+
+
+class TextOnlyMiddleware(BaseHTTPMiddleware):
+    """Block any request whose Content-Type indicates a file/binary upload."""
+    async def dispatch(self, request: StarletteRequest, call_next):
+        ct = request.headers.get("content-type", "").lower()
+        if "multipart/form-data" in ct or "application/octet-stream" in ct:
+            return JSONResponse(
+                status_code=415,
+                content={"detail": "File and image uploads are not allowed. The mentor accepts text and drawing-pad input only."},
+            )
+        return await call_next(request)
 from routes.research import router as research_router
 
 logging.basicConfig(level=logging.INFO)
@@ -110,6 +151,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Block file/image uploads at the server boundary — must be added AFTER CORSMiddleware
+# so CORS pre-flights are still handled correctly.
+app.add_middleware(TextOnlyMiddleware)
 
 app.include_router(research_router, prefix="/shri-api/research")
 
@@ -238,6 +283,11 @@ def build_system_prompt(circuit: str, context: str) -> str:
 class ChatInput(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
     session_id: str = Field(default="default", max_length=128)
+
+    @field_validator("message")
+    @classmethod
+    def no_media_content(cls, v: str) -> str:
+        return _enforce_text_only(v, "message")
 
 
 class ChatResponse(BaseModel):

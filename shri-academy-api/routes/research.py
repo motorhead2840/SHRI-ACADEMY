@@ -14,7 +14,7 @@ import asyncio
 import logging
 from typing import Any
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,15 @@ class MentorRequest(BaseModel):
     interest: str
     user_email: str | None = None
     background: str | None = None
+
+    @field_validator("interest", "background", mode="before")
+    @classmethod
+    def no_media_content(cls, v):
+        if v is None:
+            return v
+        # Reuse the same guard as the chat endpoint
+        from main import _enforce_text_only  # type: ignore
+        return _enforce_text_only(str(v), "interest/background")
 
 class LearningMilestone(BaseModel):
     phase: int
