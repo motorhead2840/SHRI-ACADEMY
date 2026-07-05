@@ -7,6 +7,7 @@ import { initAcademicSchema } from "./lib/academicDb.js";
 import { seedAcademicData } from "./lib/academicSeed.js";
 import { isSeeded } from "./lib/academicDb.js";
 import { ensureSubscriptionProducts } from "./lib/stripeProducts.js";
+import { initForumSchema } from "./lib/forumDb.js";
 import app from "./app.js";
 import { logger } from "./lib/logger.js";
 
@@ -95,6 +96,16 @@ async function initAcademic() {
   }
 }
 void initAcademic();
+
+async function initForum() {
+  try {
+    await initForumSchema();
+    logger.info("Forum schema ready");
+  } catch (err) {
+    logger.error({ err }, "Forum schema init failed (non-fatal)");
+  }
+}
+void initForum();
 
 app.listen(port, (err) => {
   if (err) { logger.error({ err }, "Error listening"); process.exit(1); }

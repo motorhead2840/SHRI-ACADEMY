@@ -9,6 +9,9 @@ import mentorRouter from "./mentor.js";
 import secopRouter from "./secops.js";
 import scholarshipRouter from "./scholarship.js";
 import academicRouter from "./academic.js";
+import forumRouter from "./forum.js";
+import gamesRouter from "./games.js";
+import mythologyRouter from "./mythology.js";
 
 const router: IRouter = Router();
 
@@ -22,5 +25,8 @@ router.use("/mentor", mentorRouter);
 router.use("/secops", secopRouter);
 router.use("/scholarship", scholarshipRouter);
 router.use("/academic", academicRouter);
+router.use("/forum", forumRouter);
+router.use("/games", gamesRouter);
+router.use("/mythology", mythologyRouter);
 
 export default router;
