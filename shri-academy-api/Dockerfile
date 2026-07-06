@@ -36,9 +36,9 @@ RUN python - <<'EOF'
 import chromadb
 client = chromadb.Client()
 # Creating a collection triggers the ONNX model download
-col = client.create_collection("_warmup")
+col = client.create_collection("warmup")
 col.add(documents=["warmup"], ids=["w1"])
-client.delete_collection("_warmup")
+client.delete_collection("warmup")
 print("ChromaDB ONNX model pre-warmed successfully")
 EOF
 
