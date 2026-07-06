@@ -10,7 +10,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
-const PYTHON_BASE = "http://localhost:8000/shri-api";
+const PYTHON_BASE = "http://localhost:8001/shri-api";
 
 // ─── Data-URI / base64-blob pattern ──────────────────────────────────────────
 // Catches: data:image/..., data:application/pdf, data:application/octet-stream
