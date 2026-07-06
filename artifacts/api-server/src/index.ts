@@ -110,55 +110,88 @@ async function initForum() {
 }
 void initForum();
 
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) { logger.error({ err }, "Error listening"); process.exit(1); }
   logger.info({ port }, "Server listening");
 });
 
 // ── Python API sidecar ────────────────────────────────────────────────────────
-// Spawn uvicorn as a child process so Replit's deployment only needs to detect
-// ONE port (8080). Running it as a separate registered artifact service caused
-// seccomp port-detection failures in production (subprocess bind() not visible
-// to the artifact manager's seccomp filter).
-(function initPythonSidecar() {
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  // dist/ lives at <workspace>/artifacts/api-server/dist/ — 3 levels up = workspace root
-  const apiDir = path.resolve(__dirname, "..", "..", "..", "shri-academy-api");
-  // Absolute Nix python path — Node child_process doesn't inherit the shell PATH
-  const pythonBin = "/home/runner/workspace/.pythonlibs/bin/python3";
-  const uvicornArgs = [
-    "-m", "uvicorn", "main:app",
-    "--host", "0.0.0.0",
-    "--port", "8001",
-    // --reload only in dev; in production the file watcher wastes memory
-    ...(process.env["NODE_ENV"] !== "production" ? ["--reload"] : []),
-  ];
+// Spawns uvicorn so Replit's deployment only needs ONE port (8080).
+// Disabled in Docker/ECS where Python runs as a separate container.
+// Enable by setting PYTHON_SIDECAR_ENABLED=true in the runtime env.
+if (process.env["PYTHON_SIDECAR_ENABLED"] === "true") {
+  (function initPythonSidecar() {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-  // Register shutdown handlers ONCE outside the restart loop to avoid
-  // MaxListenersExceededWarning when the sidecar restarts repeatedly.
-  let currentProc: ReturnType<typeof spawn> | null = null;
-  const shutdown = () => { currentProc?.kill("SIGTERM"); };
-  process.once("SIGTERM", shutdown);
-  process.once("SIGINT",  shutdown);
+    // Configurable via env — required in Replit prod where paths are known.
+    // In Docker the var is absent so this block never executes.
+    const pythonBin = process.env["PYTHON_BIN"]
+      ?? "/home/runner/workspace/.pythonlibs/bin/python3";
+    const apiDir = process.env["PY_API_DIR"]
+      ?? path.resolve(__dirname, "..", "..", "..", "shri-academy-api");
 
-  function startSidecar() {
-    logger.info({ apiDir }, "Starting Python API sidecar");
-    const proc = spawn(pythonBin, uvicornArgs, {
-      cwd: apiDir,
-      stdio: "inherit",
-      env: { ...process.env },
-    });
-    currentProc = proc;
+    const uvicornArgs = [
+      "-m", "uvicorn", "main:app",
+      "--host", "0.0.0.0",
+      "--port", "8001",
+      ...(process.env["NODE_ENV"] !== "production" ? ["--reload"] : []),
+    ];
 
-    proc.on("error", (err) => {
-      logger.error({ err }, "Python API sidecar failed to start");
-    });
+    let isShuttingDown = false;
+    let currentProc: ReturnType<typeof spawn> | null = null;
+    let restartTimer: ReturnType<typeof setTimeout> | null = null;
 
-    proc.on("exit", (code, signal) => {
-      logger.warn({ code, signal }, "Python API sidecar exited — restarting in 3s");
-      setTimeout(startSidecar, 3000);
-    });
-  }
+    function startSidecar() {
+      if (isShuttingDown) return;
+      logger.info({ apiDir, pythonBin }, "Starting Python API sidecar");
 
-  startSidecar();
-}());
+      const proc = spawn(pythonBin, uvicornArgs, {
+        cwd: apiDir,
+        stdio: "inherit",
+        env: { ...process.env },
+      });
+      currentProc = proc;
+
+      proc.on("error", (spawnErr) => {
+        logger.error({ err: spawnErr }, "Python API sidecar spawn error — retrying in 5s");
+        currentProc = null;
+        if (!isShuttingDown) {
+          restartTimer = setTimeout(startSidecar, 5000);
+        }
+      });
+
+      proc.on("exit", (code, signal) => {
+        currentProc = null;
+        if (isShuttingDown) return;
+        logger.warn({ code, signal }, "Python API sidecar exited — restarting in 3s");
+        restartTimer = setTimeout(startSidecar, 3000);
+      });
+    }
+
+    // Graceful shutdown: stop restart loop, terminate child, close HTTP server.
+    function gracefulShutdown(sig: string) {
+      if (isShuttingDown) return;
+      isShuttingDown = true;
+      logger.info({ sig }, "Shutting down");
+
+      if (restartTimer) clearTimeout(restartTimer);
+      if (currentProc) currentProc.kill("SIGTERM");
+
+      server.close(() => {
+        logger.info("HTTP server closed — exiting");
+        process.exit(0);
+      });
+
+      // Force-exit after 10s if HTTP server stalls
+      setTimeout(() => {
+        logger.warn("Forced exit after shutdown timeout");
+        process.exit(1);
+      }, 10_000).unref();
+    }
+
+    process.once("SIGTERM", () => gracefulShutdown("SIGTERM"));
+    process.once("SIGINT",  () => gracefulShutdown("SIGINT"));
+
+    startSidecar();
+  }());
+}
