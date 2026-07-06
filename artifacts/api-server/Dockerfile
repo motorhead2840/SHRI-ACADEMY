@@ -36,7 +36,7 @@ RUN pnpm --filter @workspace/api-server run build
 
 # ⑥ Deploy: extract only this package's production node_modules into /deploy
 #    This includes externalized packages (stripe-replit-sync, @aws-sdk/*, etc.)
-RUN pnpm --filter @workspace/api-server deploy --prod /deploy/api-server
+RUN pnpm --filter @workspace/api-server deploy --prod --legacy /deploy/api-server
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
 FROM node:20-alpine AS runtime
