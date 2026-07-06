@@ -25,8 +25,14 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import boto3
 from fastapi import APIRouter, Depends, HTTPException, Header
+
+try:
+    import boto3
+    _boto3_available = True
+except ImportError:
+    boto3 = None  # type: ignore
+    _boto3_available = False
 from pydantic import BaseModel
 
 log = logging.getLogger(__name__)
@@ -248,6 +254,9 @@ async def get_status(_: bool = Depends(_require_mentor)):
     region = os.environ.get("AWS_REGION", "us-east-1")
     endpoint_name = os.environ.get("SAGEMAKER_ENDPOINT_NAME")
     eval_mode = os.environ.get("MENTOR_EVAL_MODE", "").lower() == "true"
+
+    if not _boto3_available or boto3 is None:
+        raise HTTPException(status_code=503, detail="boto3 not installed — SageMaker features unavailable")
 
     sm = boto3.client("sagemaker", region_name=region)
 

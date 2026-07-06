@@ -11,8 +11,16 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Optional
 
-import boto3
 import chromadb
+
+# boto3 imported lazily — only needed for SageMaker eval mode calls,
+# not required for normal mentor operation.
+try:
+    import boto3
+    _boto3_available = True
+except ImportError:
+    boto3 = None  # type: ignore
+    _boto3_available = False
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 import re as _re
