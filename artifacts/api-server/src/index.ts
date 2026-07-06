@@ -119,7 +119,9 @@ const server = app.listen(port, (err) => {
 // Spawns uvicorn so Replit's deployment only needs ONE port (8080).
 // Disabled in Docker/ECS where Python runs as a separate container.
 // Enable by setting PYTHON_SIDECAR_ENABLED=true in the runtime env.
-if (process.env["PYTHON_SIDECAR_ENABLED"] === "true") {
+// Auto-start in dev; in Docker/ECS (NODE_ENV=production) requires explicit opt-in.
+// Replit production sets PYTHON_SIDECAR_ENABLED=true in artifact.toml.
+if (process.env["PYTHON_SIDECAR_ENABLED"] === "true" || process.env["NODE_ENV"] !== "production") {
   (function initPythonSidecar() {
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
