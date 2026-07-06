@@ -1,7 +1,7 @@
 """
 Shri Academy AI Mentor Backend
-FastAPI + ChromaDB (local ONNX embeddings) + Google Gemini
-Eval mode: parallel Gemini + SageMaker Nemotron endpoint comparison
+FastAPI + ChromaDB (local ONNX embeddings) + OpenAI
+Eval mode: parallel GPT-4o + SageMaker Nemotron endpoint comparison
 """
 
 import asyncio
@@ -21,8 +21,7 @@ try:
 except ImportError:
     boto3 = None  # type: ignore
     _boto3_available = False
-from google import genai
-from google.genai import types as genai_types
+import openai
 import re as _re
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -121,13 +120,13 @@ app.include_router(research_router, prefix="/shri-api/research")
 app.include_router(sagemaker_router, prefix="/shri-api/sagemaker")
 
 # ─── LLM Factory ────────────────────────────────────────────────────────────────
-GEMINI_MODEL = "gemini-2.0-flash"
+OPENAI_MODEL = "gpt-4o"
 
-def get_gemini_client() -> genai.Client:
-    api_key = os.environ.get("GEMINI_API_KEY")
+def get_openai_client() -> openai.OpenAI:
+    api_key = os.environ.get("OPENAI_API_KEY2") or os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        raise RuntimeError("GEMINI_API_KEY is not configured")
-    return genai.Client(api_key=api_key)
+        raise RuntimeError("OPENAI_API_KEY2 is not configured")
+    return openai.OpenAI(api_key=api_key)
 
 # ─── SageMaker Eval Inference ────────────────────────────────────────────────────
 async def call_sagemaker_endpoint(
@@ -405,45 +404,34 @@ async def chat(req: ChatInput):
     sm_endpoint = os.environ.get("SAGEMAKER_ENDPOINT_NAME")
     sm_region = os.environ.get("AWS_REGION", "us-east-1")
 
-    async def _gemini_call() -> str:
+    async def _openai_call() -> str:
         try:
-            client = get_gemini_client()
-            # Build history in google-genai Content format
-            history_contents = [
-                genai_types.Content(
-                    role=msg["role"],  # "user" or "model"
-                    parts=[genai_types.Part(text=msg["content"])],
-                )
-                for msg in gemini_history
-            ]
-            chat_session = client.chats.create(
-                model=GEMINI_MODEL,
-                config=genai_types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    max_output_tokens=2048,
+            client = get_openai_client()
+            resp = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: client.chat.completions.create(
+                    model=OPENAI_MODEL,
+                    messages=plain_messages,
+                    max_tokens=2048,
                     temperature=0.7,
                 ),
-                history=history_contents,
             )
-            resp = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: chat_session.send_message(req.message)
-            )
-            return resp.text
+            return resp.choices[0].message.content
         except Exception as e:
-            log.error(f"Gemini error: {e}")
+            log.error(f"GPT-4o error: {e}")
             raise HTTPException(status_code=502, detail=f"AI mentor unavailable: {str(e)}")
 
     if eval_mode and sm_endpoint:
-        gemini_task = asyncio.create_task(_gemini_call())
+        openai_task = asyncio.create_task(_openai_call())
         sm_task = asyncio.create_task(
             call_sagemaker_endpoint(plain_messages, sm_endpoint, sm_region)
         )
-        answer, sm_answer = await asyncio.gather(gemini_task, sm_task)
+        answer, sm_answer = await asyncio.gather(openai_task, sm_task)
     else:
-        answer = await _gemini_call()
+        answer = await _openai_call()
         sm_answer = None
 
-    # Persist to history (Gemini response is canonical)
+    # Persist to history (OpenAI response is canonical)
     session["history"].append({"role": "user", "content": req.message})
     session["history"].append({"role": "assistant", "content": answer})
 

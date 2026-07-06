@@ -1,7 +1,7 @@
 """
 generate_data.py — Synthetic training data generation for Shri mentor fine-tuning.
 
-Uses Google Gemini to produce high-quality Q&A pairs from each syllabus chunk
+Uses GPT-4o to produce high-quality Q&A pairs from each syllabus chunk
 (teacher-student distillation pattern), then uploads the JSONL dataset to S3
 for SageMaker training with Nemotron-Mini-4B.
 
@@ -13,7 +13,7 @@ Usage:
         --region us-east-1
 
 Env vars required:
-    GEMINI_API_KEY
+    OPENAI_API_KEY2
     AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY  (or instance role)
 """
 
@@ -26,8 +26,7 @@ import time
 from pathlib import Path
 
 import boto3
-from google import genai
-from google.genai import types as genai_types
+from openai import OpenAI
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -36,8 +35,8 @@ log = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from syllabus import SYLLABUS_CHUNKS  # type: ignore
 
-# ── Gemini (teacher model for data generation) ────────────────────────────────
-GENERATOR_MODEL = "gemini-2.0-flash"
+# ── OpenAI (teacher model for data generation) ───────────────────────────────
+GENERATOR_MODEL = "gpt-4o"
 
 SYSTEM_PROMPT = (
     "You are Shri, a knowledgeable AI mentor for Shri Academy. "
@@ -63,26 +62,24 @@ No extra commentary. No markdown fences. Valid JSON only.
 """
 
 
-def build_client() -> genai.Client:
-    api_key = os.environ.get("GEMINI_API_KEY")
+def build_client() -> OpenAI:
+    api_key = os.environ.get("OPENAI_API_KEY2") or os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        raise EnvironmentError("GEMINI_API_KEY is not set")
-    return genai.Client(api_key=api_key)
+        raise EnvironmentError("OPENAI_API_KEY2 is not set")
+    return OpenAI(api_key=api_key)
 
 
-def generate_pairs(client: genai.Client, chunk_text: str, n: int, retries: int = 3) -> list[dict]:
+def generate_pairs(client: OpenAI, chunk_text: str, n: int, retries: int = 3) -> list[dict]:
     prompt = GENERATOR_PROMPT.format(chunk=chunk_text, n=n)
     for attempt in range(1, retries + 1):
         try:
-            resp = client.models.generate_content(
+            resp = client.chat.completions.create(
                 model=GENERATOR_MODEL,
-                contents=prompt,
-                config=genai_types.GenerateContentConfig(
-                    max_output_tokens=2048,
-                    temperature=0.8,
-                ),
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.8,
+                max_tokens=2048,
             )
-            raw = resp.text.strip()
+            raw = resp.choices[0].message.content.strip()
             # Strip markdown fences if present
             if raw.startswith("```"):
                 raw = raw.split("```")[1]
