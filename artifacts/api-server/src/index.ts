@@ -32,7 +32,8 @@ async function initStripe() {
 
     const stripeSync = await getStripeSync();
 
-    const webhookBaseUrl = process.env.WEBHOOK_BASE_URL || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}` : "https://sriplatform.com");
+    const DEFAULT_FALLBACK_URL = "https://sriplatform.com";
+    const webhookBaseUrl = process.env.WEBHOOK_BASE_URL || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}` : DEFAULT_FALLBACK_URL);
     if (!process.env.WEBHOOK_BASE_URL && !process.env.REPLIT_DOMAINS) {
       logger.warn(`Neither WEBHOOK_BASE_URL nor REPLIT_DOMAINS is set. Falling back to webhook base URL: ${webhookBaseUrl}`);
     }

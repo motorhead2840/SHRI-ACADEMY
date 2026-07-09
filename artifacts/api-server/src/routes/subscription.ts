@@ -108,7 +108,7 @@ router.post('/checkout/fiat', async (req, res) => {
     const baseUrl =
       req.headers.origin ||
       process.env.APP_URL ||
-      (domain ? `https://${domain}` : `${req.protocol}://${req.get("host")}`);
+      (domain ? `https://${domain}` : `${req.protocol}://${req.get('host')}`);
 
     const url = await stripeService.createCheckoutSession({
       email,
