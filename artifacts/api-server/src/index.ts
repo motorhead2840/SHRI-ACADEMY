@@ -37,7 +37,7 @@ async function initStripe() {
       if (process.env.REPLIT_DOMAINS) {
         webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`;
       } else {
-        webhookBaseUrl = "http://localhost:5000";
+        webhookBaseUrl = `http://localhost:${port}`;
         logger.warn(`Neither WEBHOOK_BASE_URL nor REPLIT_DOMAINS is set. Falling back to development webhook base URL: ${webhookBaseUrl}`);
       }
     }
