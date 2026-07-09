@@ -40,7 +40,7 @@ async function initStripe() {
       await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
       logger.info({ webhookBaseUrl }, "Stripe webhook configured");
     } else {
-      logger.warn("Neither WEBHOOK_BASE_URL, APP_URL, nor REPLIT_DOMAINS is set — skipping Stripe webhook configuration");
+      logger.warn("Neither WEBHOOK_BASE_URL, APP_URL, nor REPLIT_DOMAINS is set — skipping Stripe webhook configuration. At least one of these environment variables should be configured for production deployments to ensure payment events are processed.");
     }
 
     // Run backfill in background — don't block server startup
