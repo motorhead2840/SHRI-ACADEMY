@@ -232,32 +232,81 @@ def is_frustrated(message: str) -> bool:
     lowered = message.lower()
     return any(signal in lowered for signal in FRUSTRATION_SIGNALS)
 
+# Standard and contracted spelling variations are included here to robustly match
+# different user input styles and catch common typing patterns.
+GENERAL_MOTIVATIONAL_KEYWORDS = [
+    "motivation", "motivate", "encouragement", "encourage", "inspire", "inspiration",
+    "give up", "quit", "can't do", "cant do", "cannot do", "can not do", "too hard", "struggling", "struggle"
+]
+
+SPEECH_SPECIFIC_KEYWORDS = [
+    "make your bed", "mcraven", "admiral"
+]
+
+MOTIVATIONAL_PREFIX = "motivational_"
+MAX_CONTEXT_RESULTS = 5
+FALLBACK_CONTEXT_RESULTS = 2
+INITIAL_QUERY_RESULTS = 10
+
+def needs_motivation(message: str, circuit: str) -> bool:
+    # Under Circuit A (Supportive Mode), the student is struggling and needs support,
+    # so we proactively allow motivational content in RAG retrieval.
+    if circuit == "A":
+        return True
+    if is_frustrated(message):
+        return True
+    lowered = message.lower()
+    return (any(keyword in lowered for keyword in GENERAL_MOTIVATIONAL_KEYWORDS) or
+            any(keyword in lowered for keyword in SPEECH_SPECIFIC_KEYWORDS))
+
 def get_circuit(session: dict) -> str:
     """'A' = Supportive/Empathetic, 'B' = Socratic/Rigorous"""
     return "A" if session["frustration"] >= 2 else "B"
 
-def retrieve_context(query: str) -> tuple[str, list[str]]:
-    """Retrieve top-5 relevant syllabus chunks via ChromaDB semantic search."""
+def retrieve_context(query: str, circuit: str = "B") -> tuple[str, list[str]]:
+    """Retrieve top-N relevant chunks via ChromaDB semantic search, filtering motivational chunks if not needed."""
     if collection is None:
-        return _keyword_fallback(query)
+        return _keyword_fallback(query, circuit)
     try:
-        results = collection.query(query_texts=[query], n_results=5)
+        # Retrieve INITIAL_QUERY_RESULTS results instead of MAX_CONTEXT_RESULTS to ensure we have enough academic content
+        # left over if motivational chunks are filtered out. Given our approximate collection size of ~35 syllabus
+        # chunks at the time of implementation (July 2026), this single-stage query is highly efficient and avoids
+        # complex multi-stage querying.
+        results = collection.query(query_texts=[query], n_results=INITIAL_QUERY_RESULTS)
         docs = results["documents"][0] if results["documents"] else []
-        context = "\n\n---\n\n".join(docs) if docs else "No relevant context found."
-        return context, docs
+        ids = results["ids"][0] if results["ids"] else []
+        
+        allow_motivation = needs_motivation(query, circuit)
+        
+        filtered_docs = []
+        for doc_id, doc_text in zip(ids, docs):
+            is_motivational = doc_id.startswith(MOTIVATIONAL_PREFIX)
+            if is_motivational and not allow_motivation:
+                continue
+            filtered_docs.append(doc_text)
+            if len(filtered_docs) >= MAX_CONTEXT_RESULTS:
+                break
+                
+        context = "\n\n---\n\n".join(filtered_docs) if filtered_docs else "No relevant context found."
+        return context, filtered_docs
     except Exception as e:
         log.warning(f"ChromaDB query failed: {e}, using keyword fallback")
-        return _keyword_fallback(query)
+        return _keyword_fallback(query, circuit)
 
-def _keyword_fallback(query: str) -> tuple[str, list[str]]:
+def _keyword_fallback(query: str, circuit: str = "B") -> tuple[str, list[str]]:
     """Simple keyword-based retrieval as ChromaDB fallback."""
     lowered = query.lower()
     scored = []
+    allow_motivation = needs_motivation(query, circuit)
+    
     for chunk_id, doc in SYLLABUS_CHUNKS:
+        is_motivational = chunk_id.startswith(MOTIVATIONAL_PREFIX)
+        if is_motivational and not allow_motivation:
+            continue
         score = sum(1 for word in lowered.split() if len(word) > 3 and word in doc.lower())
         scored.append((score, doc))
     scored.sort(key=lambda x: x[0], reverse=True)
-    top_docs = [doc for _, doc in scored[:2]]
+    top_docs = [doc for _, doc in scored[:FALLBACK_CONTEXT_RESULTS]]
     context = "\n\n---\n\n".join(top_docs) if top_docs else "No relevant context."
     return context, top_docs
 
@@ -290,6 +339,8 @@ def build_system_prompt(circuit: str, context: str) -> str:
             "• Lower pedagogical friction significantly — give a strong, near-explicit hint\n"
             "• Break down the concept into the smallest possible steps\n"
             "• Use warm, accessible language — avoid jargon unless you immediately explain it\n"
+            "• When motivational context (e.g., Admiral McRaven's lessons) is retrieved, integrate its "
+            "message of resilience and simple tasks (like making your bed) to inspire them to keep going\n"
             "• Close with genuine encouragement\n"
             "You may be more direct than usual, but still frame your help as a guiding question."
         )
@@ -382,7 +433,7 @@ async def chat(req: ChatInput):
     circuit = get_circuit(session)
 
     # RAG retrieval
-    context, context_used = retrieve_context(req.message)
+    context, context_used = retrieve_context(req.message, circuit)
 
     # Build system prompt and OpenAI message list (system + history + current)
     system_prompt = build_system_prompt(circuit, context)
