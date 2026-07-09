@@ -82,7 +82,7 @@ function gradientVariance(): number {
 
 // ─── Stability Coefficient Ξ ──────────────────────────────────────────────────
 
-function stabilityCoefficient(states: number[]): number {
+export function stabilityCoefficient(states: number[]): number {
   if (states.length === 0) return 1.0;
   // Ξ = 1 − Var(state) / (E(|state|) + ε)
   // Var(state) uses original signed values; denominator uses mean of |state|
