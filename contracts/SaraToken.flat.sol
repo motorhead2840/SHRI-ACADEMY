@@ -6430,13 +6430,9 @@ contract SaraToken is ERC20, ERC20Burnable, ERC20Permit, ERC20Votes, Ownable2Ste
         uint256 amount,
         bytes32 reason
     ) external onlyOwner {
-        // totalSupply() < MAX_SUPPLY is already guaranteed by the error branch,
-        // so the addition cannot overflow — safe to use unchecked.
-        unchecked {
-            uint256 supply = totalSupply();
-            if (supply + amount > MAX_SUPPLY) {
-                revert ExceedsMaxSupply(amount, MAX_SUPPLY - supply);
-            }
+        uint256 supply = totalSupply();
+        if (amount > MAX_SUPPLY - supply) {
+            revert ExceedsMaxSupply(amount, MAX_SUPPLY - supply);
         }
         _mint(to, amount);
         emit TokensMinted(to, amount, reason);
