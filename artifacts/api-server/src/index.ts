@@ -32,9 +32,16 @@ async function initStripe() {
 
     const stripeSync = await getStripeSync();
 
-    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
-    await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
-    logger.info("Stripe webhook configured");
+    const webhookBaseUrl = process.env.WEBHOOK_BASE_URL 
+      || process.env.APP_URL 
+      || (process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}` : null);
+
+    if (webhookBaseUrl) {
+      await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
+      logger.info({ webhookBaseUrl }, "Stripe webhook configured");
+    } else {
+      logger.warn("Neither WEBHOOK_BASE_URL, APP_URL, nor REPLIT_DOMAINS is set — skipping Stripe webhook configuration");
+    }
 
     // Run backfill in background — don't block server startup
     stripeSync.syncBackfill()
