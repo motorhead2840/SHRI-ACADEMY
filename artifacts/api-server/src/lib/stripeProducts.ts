@@ -36,7 +36,7 @@ export async function ensureSubscriptionProducts(): Promise<TierPriceMap> {
         active: true,
         limit: 10,
       }).catch(() => ({ data: [] }));
-      const match = prices.data.find(
+      const match = (prices.data as any[]).find(
         (p) =>
           p.unit_amount === expectedCents &&
           p.recurring?.interval === 'month' &&

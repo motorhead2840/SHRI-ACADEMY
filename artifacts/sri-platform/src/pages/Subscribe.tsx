@@ -147,7 +147,7 @@ export default function Subscribe() {
         const distance = expiresAt - now;
         
         if (distance < 0) {
-          clearInterval(timerRef.current);
+          if (timerRef.current) clearInterval(timerRef.current);
           setCountdown(0);
           setPaymentStatus("expired");
         } else {
@@ -161,8 +161,8 @@ export default function Subscribe() {
           const statusRes = await getCryptoStatus(res.payment_id);
           if (statusRes.status === "confirmed") {
             setPaymentStatus("confirmed");
-            clearInterval(pollRef.current);
-            clearInterval(timerRef.current);
+            if (pollRef.current) clearInterval(pollRef.current);
+            if (timerRef.current) clearInterval(timerRef.current);
             // Simulate unlocked features
             setSubscription({
               active: true,
@@ -173,8 +173,8 @@ export default function Subscribe() {
             });
           } else if (statusRes.status === "expired") {
             setPaymentStatus("expired");
-            clearInterval(pollRef.current);
-            clearInterval(timerRef.current);
+            if (pollRef.current) clearInterval(pollRef.current);
+            if (timerRef.current) clearInterval(timerRef.current);
           }
         } catch (err) {
           console.error("Polling error", err);
