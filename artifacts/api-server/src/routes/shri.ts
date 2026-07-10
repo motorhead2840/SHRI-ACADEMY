@@ -208,9 +208,9 @@ router.get("/sagemaker/status", requireMentor, async (_req, res) => {
     const data = await proxyGetWithMentorAuth("/sagemaker/status");
     res.json(data);
   } catch (err: unknown) {
-    logger.error({ err }, "Sagemaker status error");
+    logger.error({ err }, "SageMaker status error");
     const e = err as { status?: number };
-    res.status(e.status ?? 502).json({ error: "Sagemaker status unavailable" });
+    res.status(e.status ?? 502).json({ error: "SageMaker status unavailable" });
   }
 });
 
@@ -220,9 +220,9 @@ router.post("/sagemaker/generate-data", requireMentor, async (req, res) => {
     const data = await proxyPostWithMentorAuth("/sagemaker/generate-data", req.body);
     res.json(data);
   } catch (err: unknown) {
-    logger.error({ err }, "Sagemaker generate data error");
+    logger.error({ err }, "SageMaker generate data error");
     const e = err as { status?: number };
-    res.status(e.status ?? 502).json({ error: "Sagemaker generate data failed" });
+    res.status(e.status ?? 502).json({ error: "SageMaker generate data failed" });
   }
 });
 
@@ -232,9 +232,9 @@ router.post("/sagemaker/train", requireMentor, async (req, res) => {
     const data = await proxyPostWithMentorAuth("/sagemaker/train", req.body);
     res.json(data);
   } catch (err: unknown) {
-    logger.error({ err }, "Sagemaker train error");
+    logger.error({ err }, "SageMaker train error");
     const e = err as { status?: number };
-    res.status(e.status ?? 502).json({ error: "Sagemaker training launch failed" });
+    res.status(e.status ?? 502).json({ error: "SageMaker training launch failed" });
   }
 });
 
@@ -244,9 +244,9 @@ router.post("/sagemaker/deploy", requireMentor, async (req, res) => {
     const data = await proxyPostWithMentorAuth("/sagemaker/deploy", req.body);
     res.json(data);
   } catch (err: unknown) {
-    logger.error({ err }, "Sagemaker deploy error");
+    logger.error({ err }, "SageMaker deploy error");
     const e = err as { status?: number };
-    res.status(e.status ?? 502).json({ error: "Sagemaker deployment failed" });
+    res.status(e.status ?? 502).json({ error: "SageMaker deployment failed" });
   }
 });
 

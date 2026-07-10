@@ -56,8 +56,11 @@ export async function generateSageMakerData(token: string, data: { pairs_per_chu
     try {
       const parsed = JSON.parse(text);
       throw new Error(parsed.detail || parsed.error || 'Failed to generate synthetic data');
-    } catch {
-      throw new Error(text || 'Failed to generate synthetic data');
+    } catch (e: any) {
+      if (e instanceof SyntaxError) {
+        throw new Error(text || 'Failed to generate synthetic data');
+      }
+      throw e;
     }
   }
   return res.json();
@@ -77,8 +80,11 @@ export async function trainSageMakerModel(token: string, data: { data_s3_uri: st
     try {
       const parsed = JSON.parse(text);
       throw new Error(parsed.detail || parsed.error || 'Failed to start SageMaker training');
-    } catch {
-      throw new Error(text || 'Failed to start SageMaker training');
+    } catch (e: any) {
+      if (e instanceof SyntaxError) {
+        throw new Error(text || 'Failed to start SageMaker training');
+      }
+      throw e;
     }
   }
   return res.json();
@@ -98,8 +104,11 @@ export async function deploySageMakerEndpoint(token: string, data: { model_data_
     try {
       const parsed = JSON.parse(text);
       throw new Error(parsed.detail || parsed.error || 'Failed to deploy SageMaker endpoint');
-    } catch {
-      throw new Error(text || 'Failed to deploy SageMaker endpoint');
+    } catch (e: any) {
+      if (e instanceof SyntaxError) {
+        throw new Error(text || 'Failed to deploy SageMaker endpoint');
+      }
+      throw e;
     }
   }
   return res.json();

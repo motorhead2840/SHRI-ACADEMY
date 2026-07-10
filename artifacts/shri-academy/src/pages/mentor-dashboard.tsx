@@ -1184,13 +1184,16 @@ function SecurityInfraTab() {
   );
 }
 
+const DEFAULT_PAIRS_PER_CHUNK = 8;
+const STATUS_POLL_INTERVAL_MS = 30000;
+
 function SageMakerTab() {
   const [status, setStatus] = useState<any>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
 
   // Step 1 states
-  const [pairsPerChunk, setPairsPerChunk] = useState(8);
+  const [pairsPerChunk, setPairsPerChunk] = useState<number | undefined>(DEFAULT_PAIRS_PER_CHUNK);
   const [s3Prefix, setS3Prefix] = useState('mentor-training/data');
   const [generatingData, setGeneratingData] = useState(false);
   const [genDataResult, setGenDataResult] = useState<any>(null);
@@ -1242,9 +1245,12 @@ function SageMakerTab() {
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 30000); // Auto-poll every 30s
+    if (generatingData || training || deploying) {
+      return; // Pause auto-polling during active operations to avoid unnecessary APIs and potential race conditions
+    }
+    const interval = setInterval(fetchStatus, STATUS_POLL_INTERVAL_MS); // Auto-poll
     return () => clearInterval(interval);
-  }, [fetchStatus]);
+  }, [fetchStatus, generatingData, training, deploying]);
 
   const handleGenerateData = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1253,9 +1259,10 @@ function SageMakerTab() {
     setGeneratingData(true);
     setGenDataError(null);
     setGenDataResult(null);
-    addLog(`Kicked off synthetic Q&A generation from syllabus chunks (pairs_per_chunk: ${pairsPerChunk}). Please wait, this takes 2-3 minutes...`);
+    const pairs = pairsPerChunk === undefined ? DEFAULT_PAIRS_PER_CHUNK : pairsPerChunk;
+    addLog(`Kicked off synthetic Q&A generation from syllabus chunks (pairs_per_chunk: ${pairs}). Please wait, this takes 2-3 minutes...`);
     try {
-      const res = await generateSageMakerData(token, { pairs_per_chunk: pairsPerChunk, s3_prefix: s3Prefix });
+      const res = await generateSageMakerData(token, { pairs_per_chunk: pairs, s3_prefix: s3Prefix });
       setGenDataResult(res);
       setDataS3Uri(res.s3_uri);
       addLog(`SUCCESS: Generated ${res.record_count} Q&A pairs. S3 URI: ${res.s3_uri}`);
@@ -1402,8 +1409,18 @@ function SageMakerTab() {
                   type="number"
                   min="1"
                   max="20"
-                  value={pairsPerChunk}
-                  onChange={e => setPairsPerChunk(parseInt(e.target.value) || 8)}
+                  value={pairsPerChunk ?? ''}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setPairsPerChunk(undefined);
+                    } else {
+                      const num = parseInt(val);
+                      if (!isNaN(num)) {
+                        setPairsPerChunk(num);
+                      }
+                    }
+                  }}
                   className="w-full bg-black border border-system/30 px-3 py-1.5 text-xs text-system font-mono focus:border-system focus:outline-none"
                   disabled={generatingData}
                 />
@@ -1451,7 +1468,7 @@ function SageMakerTab() {
               <h3 className="text-xs font-bold uppercase tracking-wider text-system">LoRA Fine-Tuning</h3>
             </div>
             <p className="text-[11px] text-system/60 leading-relaxed">
-              Submits an asynchronous HuggingFace Training Job on SageMaker. Pins PyTorch 2.1 and transformers 4.37.0.
+              Submits an asynchronous Hugging Face Training Job on SageMaker. Pins PyTorch 2.1 and transformers 4.37.0.
             </p>
 
             <form onSubmit={handleLaunchTraining} className="space-y-3 pt-2">
@@ -1559,7 +1576,7 @@ function SageMakerTab() {
                 >
                   <option value="ml.g4dn.xlarge">ml.g4dn.xlarge (1x T4 16GB)</option>
                   <option value="ml.g5.xlarge">ml.g5.xlarge (1x A10G 24GB)</option>
-                  <option value="ml.m5.large">ml.m5.xlarge (CPU fallback)</option>
+                  <option value="ml.m5.large">ml.m5.large (CPU fallback)</option>
                 </select>
               </div>
               <button
