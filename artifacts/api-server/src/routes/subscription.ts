@@ -109,7 +109,8 @@ router.post('/checkout/fiat', async (req, res) => {
 
     const baseUrl =
       req.headers.origin ||
-      `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+      process.env.APP_URL ||
+      `${req.protocol}://${req.get('host')}`;
 
     const url = await stripeService.createCheckoutSession({
       email,
