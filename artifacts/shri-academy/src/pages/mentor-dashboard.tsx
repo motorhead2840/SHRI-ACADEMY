@@ -1243,12 +1243,17 @@ function SageMakerTab() {
     }
   }, [addLog, dataS3Uri]);
 
+  // Call fetchStatus once on mount or when fetchStatus definition changes
   useEffect(() => {
     fetchStatus();
+  }, [fetchStatus]);
+
+  // Handle periodic auto-polling, with conditional interval creation depending on active state
+  useEffect(() => {
     if (generatingData || training || deploying) {
       return; // Pause auto-polling during active operations to avoid unnecessary APIs and potential race conditions
     }
-    const interval = setInterval(fetchStatus, STATUS_POLL_INTERVAL_MS); // Auto-poll
+    const interval = setInterval(fetchStatus, STATUS_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchStatus, generatingData, training, deploying]);
 
@@ -1259,7 +1264,7 @@ function SageMakerTab() {
     setGeneratingData(true);
     setGenDataError(null);
     setGenDataResult(null);
-    const pairs = pairsPerChunk === undefined ? DEFAULT_PAIRS_PER_CHUNK : pairsPerChunk;
+    const pairs = pairsPerChunk || DEFAULT_PAIRS_PER_CHUNK;
     addLog(`Kicked off synthetic Q&A generation from syllabus chunks (pairs_per_chunk: ${pairs}). Please wait, this takes 2-3 minutes...`);
     try {
       const res = await generateSageMakerData(token, { pairs_per_chunk: pairs, s3_prefix: s3Prefix });
@@ -1417,7 +1422,7 @@ function SageMakerTab() {
                     } else {
                       const num = parseInt(val);
                       if (!isNaN(num)) {
-                        setPairsPerChunk(num);
+                        setPairsPerChunk(Math.max(1, num));
                       }
                     }
                   }}
