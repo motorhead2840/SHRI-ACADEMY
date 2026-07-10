@@ -93,7 +93,10 @@ router.get('/plans', async (req, res) => {
 
 router.post('/checkout/fiat', async (req, res) => {
   const { email, country_code, payment_category } = req.body ?? {};
-  if (!email) return res.status(400).json({ error: 'email is required' });
+  if (!email) {
+    res.status(400).json({ error: 'email is required' });
+    return;
+  }
 
   const validCategories = ['card', 'bank'];
   const paymentCategory: 'card' | 'bank' =
@@ -133,20 +136,28 @@ router.post('/checkout/fiat', async (req, res) => {
 router.post('/checkout/crypto', async (req, res) => {
   const { email, currency, country_code } = req.body ?? {};
 
-  if (!email)    return res.status(400).json({ error: 'email is required' });
-  if (!currency) return res.status(400).json({ error: 'currency is required (eth|usdc|btc|sara)' });
+  if (!email) {
+    res.status(400).json({ error: 'email is required' });
+    return;
+  }
+  if (!currency) {
+    res.status(400).json({ error: 'currency is required (eth|usdc|btc|sara)' });
+    return;
+  }
 
   const validCurrencies: CryptoCurrency[] = ['eth', 'usdc', 'btc', 'sara'];
   if (!validCurrencies.includes(currency)) {
-    return res.status(400).json({ error: `Invalid currency. Must be one of: ${validCurrencies.join(', ')}` });
+    res.status(400).json({ error: `Invalid currency. Must be one of: ${validCurrencies.join(', ')}` });
+    return;
   }
 
   const wallet = walletAddress(currency as CryptoCurrency);
   if (!wallet) {
-    return res.status(503).json({
+    res.status(503).json({
       error: `${currency.toUpperCase()} payments not yet configured`,
       detail: `Set CRYPTO_${currency === 'btc' ? 'BTC' : 'ETH'}_WALLET in environment secrets`,
     });
+    return;
   }
 
   try {
@@ -245,13 +256,13 @@ router.get('/crypto/status/:id', async (req, res) => {
     }
 
     const remaining = Math.max(0, payment.expires_at.getTime() - Date.now());
-    res.json({
+    return res.json({
       status: 'pending',
       expires_in_ms: remaining,
       payment,
     });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to check payment status', detail: String(err) });
+    return res.status(500).json({ error: 'Failed to check payment status', detail: String(err) });
   }
 });
 
@@ -259,7 +270,10 @@ router.get('/crypto/status/:id', async (req, res) => {
 
 router.get('/status', async (req, res) => {
   const email = String(req.query.email ?? '');
-  if (!email) return res.status(400).json({ error: 'email query param required' });
+  if (!email) {
+    res.status(400).json({ error: 'email query param required' });
+    return;
+  }
 
   try {
     const status = await getUserSubscription(email);

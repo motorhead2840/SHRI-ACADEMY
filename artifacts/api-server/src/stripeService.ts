@@ -52,7 +52,7 @@ export class StripeService {
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      payment_method_types: isBank ? (bankMethods as unknown as string[]) : ['card'],
+      payment_method_types: isBank ? (bankMethods as any) : ['card'] as any,
       line_items: [{ price: opts.priceId, quantity: 1 }],
       mode: 'subscription',
       success_url: opts.successUrl,

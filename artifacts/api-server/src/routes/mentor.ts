@@ -30,15 +30,18 @@ function registrationCode(): string {
 router.post('/register', async (req, res) => {
   const { email, password, registration_code } = req.body ?? {};
   if (!email || !password) {
-    return res.status(400).json({ error: 'email and password are required' });
+    res.status(400).json({ error: 'email and password are required' });
+    return;
   }
   if (password.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    res.status(400).json({ error: 'Password must be at least 8 characters' });
+    return;
   }
 
   const code = registrationCode();
   if (!code) {
-    return res.status(503).json({ error: 'Mentor registration is not enabled. Set MENTOR_REGISTRATION_CODE.' });
+    res.status(503).json({ error: 'Mentor registration is not enabled. Set MENTOR_REGISTRATION_CODE.' });
+    return;
   }
 
   // Constant-time registration code comparison to prevent timing attacks
@@ -53,7 +56,8 @@ router.post('/register', async (req, res) => {
     }
   })();
   if (!codeMatch) {
-    return res.status(403).json({ error: 'Invalid registration code' });
+    res.status(403).json({ error: 'Invalid registration code' });
+    return;
   }
 
   try {
@@ -68,7 +72,8 @@ router.post('/register', async (req, res) => {
       // Never overwrite an existing account's role or credentials —
       // prevents privilege escalation via registration code reuse.
       // Return same generic error regardless of existing role (no enumeration).
-      return res.status(409).json({ error: 'An account with this email already exists' });
+      res.status(409).json({ error: 'An account with this email already exists' });
+      return;
     }
 
     await pool.query(`
@@ -88,7 +93,8 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body ?? {};
   if (!email || !password) {
-    return res.status(400).json({ error: 'email and password are required' });
+    res.status(400).json({ error: 'email and password are required' });
+    return;
   }
 
   try {
@@ -108,7 +114,8 @@ router.post('/login', async (req, res) => {
 
     if (!ok) {
       // Single generic message — no account state, role, or existence revealed
-      return res.status(401).json({ error: 'Invalid credentials' });
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
     }
 
     const token = signMentorToken(email);
@@ -159,7 +166,7 @@ router.get('/metrics', requireMentor, async (req, res) => {
           FROM stripe.subscriptions
          WHERE status IN ('active','trialing')
          GROUP BY status
-      `).catch(() => ({ rows: [] })),
+      `).catch(() => ({ rows: [] as any[] })),
 
       // Active crypto subscriptions
       pool.query<{ count: string }>(`
@@ -193,7 +200,7 @@ router.get('/metrics', requireMentor, async (req, res) => {
           JOIN stripe.products p ON p.id = pr.product
          WHERE s.status IN ('active','trialing')
          GROUP BY tier
-      `).catch(() => ({ rows: [] })),
+      `).catch(() => ({ rows: [] as any[] })),
     ]);
 
     const userCounts = totalStudents.status === 'fulfilled'
@@ -205,7 +212,7 @@ router.get('/metrics', requireMentor, async (req, res) => {
       : {};
 
     const stripeActive = activeStripe.status === 'fulfilled'
-      ? activeStripe.value.rows.reduce((acc, r) => acc + r.count, 0)
+      ? (activeStripe.value.rows as any[]).reduce((acc: number, r: any) => acc + Number(r.count), 0)
       : 0;
 
     const cryptoActive = activeCrypto.status === 'fulfilled'
@@ -213,7 +220,7 @@ router.get('/metrics', requireMentor, async (req, res) => {
       : 0;
 
     const stripeTiers = stripeActiveByProduct.status === 'fulfilled'
-      ? Object.fromEntries(stripeActiveByProduct.value.rows.map((r) => [r.tier, r.count]))
+      ? Object.fromEntries((stripeActiveByProduct.value.rows as any[]).map((r: any) => [r.tier, Number(r.count)]))
       : {};
 
     const cryptoPayments = recentCryptoPayments.status === 'fulfilled'
@@ -245,7 +252,7 @@ router.get('/metrics', requireMentor, async (req, res) => {
         },
       },
       crypto_payments_30d: {
-        total_transactions: cryptoPayments.reduce((a, r) => a + r.count, 0),
+        total_transactions: cryptoPayments.reduce((a, r) => a + Number(r.count), 0),
         total_usd_volume: Math.round(totalRevenueCrypto * 100) / 100,
         by_currency: Object.fromEntries(
           cryptoPayments.map((r) => [r.currency, { count: r.count, usd: r.total_usd }])
