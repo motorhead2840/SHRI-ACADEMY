@@ -9,9 +9,9 @@ resource "aws_route53_record" "apex" {
   name    = var.domain_name
   type    = "A"
 
-  set_identifier = "us-east-1"
+  set_identifier = var.aws_region
   latency_routing_policy {
-    region = "us-east-1"
+    region = var.aws_region
   }
 
   alias {
@@ -26,9 +26,9 @@ resource "aws_route53_record" "api" {
   name    = "api.${var.domain_name}"
   type    = "A"
 
-  set_identifier = "us-east-1"
+  set_identifier = var.aws_region
   latency_routing_policy {
-    region = "us-east-1"
+    region = var.aws_region
   }
 
   alias {

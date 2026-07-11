@@ -1,3 +1,55 @@
+# ─── CloudFront Cache Policies ────────────────────────────────────────────────
+
+resource "aws_cloudfront_cache_policy" "default" {
+  name        = "${var.project}-${var.environment}-default-policy"
+  comment     = "Default cache policy for dynamic content and API fallbacks"
+  default_ttl = 86400
+  max_ttl     = 31536000
+  min_ttl     = 1
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    cookies_config {
+      cookie_behavior = "none"
+    }
+    headers_config {
+      header_behavior = "whitelist"
+      headers {
+        items = ["Host", "Origin"]
+      }
+    }
+    query_strings_config {
+      query_string_behavior = "none"
+    }
+    enable_accept_encoding_gzip   = true
+    enable_accept_encoding_brotli = true
+  }
+}
+
+resource "aws_cloudfront_cache_policy" "assets" {
+  name        = "${var.project}-${var.environment}-assets-policy"
+  comment     = "Cache policy optimized for static assets"
+  default_ttl = 86400
+  max_ttl     = 31536000
+  min_ttl     = 1
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    cookies_config {
+      cookie_behavior = "none"
+    }
+    headers_config {
+      header_behavior = "whitelist"
+      headers {
+        items = ["Origin"]
+      }
+    }
+    query_strings_config {
+      query_string_behavior = "none"
+    }
+    enable_accept_encoding_gzip   = true
+    enable_accept_encoding_brotli = true
+  }
+}
+
 # ─── CloudFront CDN Layer ─────────────────────────────────────────────────────
 
 resource "aws_cloudfront_distribution" "main" {
@@ -23,66 +75,32 @@ resource "aws_cloudfront_distribution" "main" {
   aliases = ["cdn.${var.domain_name}"]
 
   default_cache_behavior {
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "ALB"
-
-    forwarded_values {
-      query_string = false
-      headers      = ["Host", "Origin"]
-
-      cookies {
-        forward = "none"
-      }
-    }
-
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "ALB"
+    cache_policy_id        = aws_cloudfront_cache_policy.default.id
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 86400
-    max_ttl                = 31536000
     compress               = true
   }
 
   # Custom cache behaviors for static assets
   ordered_cache_behavior {
-    path_pattern     = "/assets/*"
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "ALB"
-
-    forwarded_values {
-      query_string = false
-      headers      = ["Origin"]
-      cookies {
-        forward = "none"
-      }
-    }
-
+    path_pattern           = "/assets/*"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "ALB"
+    cache_policy_id        = aws_cloudfront_cache_policy.assets.id
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 86400
-    max_ttl                = 31536000
     compress               = true
   }
 
   ordered_cache_behavior {
-    path_pattern     = "/static/*"
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "ALB"
-
-    forwarded_values {
-      query_string = false
-      headers      = ["Origin"]
-      cookies {
-        forward = "none"
-      }
-    }
-
+    path_pattern           = "/static/*"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "ALB"
+    cache_policy_id        = aws_cloudfront_cache_policy.assets.id
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 86400
-    max_ttl                = 31536000
     compress               = true
   }
 

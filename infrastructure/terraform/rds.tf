@@ -161,13 +161,6 @@ resource "aws_iam_role_policy" "db_proxy" {
         Resource = [
           aws_secretsmanager_secret.db_password.arn
         ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt"
-        ]
-        Resource = ["*"]
       }
     ]
   })
