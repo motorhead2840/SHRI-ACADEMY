@@ -94,8 +94,11 @@ resource "aws_lb_target_group" "shri" {
   target_type = "ip"
 
   health_check {
-    path     = "/shri-api/health"
-    interval = 30
+    path                = "/shri-api/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 30
   }
 }
 
@@ -246,6 +249,13 @@ resource "aws_ecs_task_definition" "shri_api" {
           awslogs-stream-prefix = "shri"
         }
       }
+      healthCheck = {
+        command     = ["CMD-SHELL", "curl -f http://localhost:8000/shri-api/health || exit 1"]
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 120
+      }
     }
   ])
 }
@@ -257,7 +267,17 @@ resource "aws_ecs_service" "api_server" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.api_server.arn
   desired_count   = 2
-  launch_type     = "FARGATE"
+
+  capacity_provider_strategy {
+    capacity_provider = "FARGATE"
+    weight            = 70
+    base              = 1
+  }
+
+  capacity_provider_strategy {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 30
+  }
 
   network_configuration {
     subnets          = aws_subnet.private[*].id
@@ -286,7 +306,17 @@ resource "aws_ecs_service" "shri_api" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.shri_api.arn
   desired_count   = 2
-  launch_type     = "FARGATE"
+
+  capacity_provider_strategy {
+    capacity_provider = "FARGATE"
+    weight            = 70
+    base              = 1
+  }
+
+  capacity_provider_strategy {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 30
+  }
 
   network_configuration {
     subnets          = aws_subnet.private[*].id
