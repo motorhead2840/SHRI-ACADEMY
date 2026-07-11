@@ -375,4 +375,61 @@ SYLLABUS_CHUNKS: list[tuple[str, str]] = [
         "matter how hard the challenge, how deep the pain, or how long the struggle, never quit on your "
         "dreams or yourself.",
     ),
+    # ── MIT OpenCourseWare (OCW) ──────────────────────────────────────────────────
+    (
+        "ocw_pedagogy_overview",
+        "MIT OpenCourseWare (OCW) Overview and Pedagogy: MIT OpenCourseWare is a pioneering, web-based publication "
+        "of virtually all MIT course content, open and available to the world under a Creative Commons license. "
+        "Its pedagogical foundation centers on open-access, self-paced academic exploration that mirrors "
+        "the rigorous curriculum of MIT's on-campus programs. Key components of each OCW course typically "
+        "include a comprehensive syllabus, detailed lecture notes or video lectures, recommended textbook readings, "
+        "and authentic student assessments such as problem sets, exams, and projects (often with solutions). "
+        "This open-access framework empowers independent learners, educators, and students globally to engage with "
+        "advanced scientific and humanities topics without financial barriers, cultivating deep academic research "
+        "capabilities and lifelong learning habits.",
+    ),
+    (
+        "ocw_curriculum_mapping",
+        "MIT OCW Curriculum Structure and Mapping: The OCW academic catalog is organized systematically by academic "
+        "departments (such as Electrical Engineering and Computer Science, Mathematics, and Physics) and cross-disciplinary "
+        "specializations. Courses are structured with precise, sequential prerequisites, mapping a logical learning "
+        "pathway from foundational undergraduate courses (e.g., 18.01 Single Variable Calculus, 6.042J Mathematics for "
+        "Computer Science) to intermediate core topics (e.g., 18.06 Linear Algebra, 6.006 Introduction to Algorithms, "
+        "6.033 Computer System Engineering) and highly specialized graduate seminars (e.g., 6.824 Distributed Systems, "
+        "6.867 Graduate Machine Learning). This structured hierarchy enables students to construct specialized academic "
+        "profiles and progress smoothly from fundamental principles to active, unsolved research frontiers.",
+    ),
+    # ── Massive Open Online Courses (MOOC) ─────────────────────────────────────────
+    (
+        "mooc_active_learning",
+        "MOOC Pedagogical Methodology and Active Learning: Massive Open Online Courses (MOOCs) have revolutionized "
+        "global higher education by blending scalable digital technologies with modern learning sciences. The core "
+        "pedagogical methodology of effective MOOCs shifts the student's role from passive lecture consumption to "
+        "active learning. This is achieved through frequent formative assessments (such as in-video quiz questions), "
+        "interactive programming notebooks or virtual lab environments, automated grading systems, and peer-reviewed "
+        "rubrics for open-ended assignments. By chunking complex lectures into bite-sized video segments and reinforcing "
+        "them with immediate, low-stakes practice, MOOCs optimize cognitive load, boost knowledge retention, and "
+        "provide robust scaffolding for learners of diverse educational backgrounds.",
+    ),
+    (
+        "mooc_platforms_features",
+        "Global MOOC Ecosystem and Platforms: The global MOOC landscape features specialized platforms offering distinct "
+        "learning structures and target outcomes. Major platforms include Coursera and edX, which partner with premier "
+        "global universities to offer comprehensive micro-credentials, professional certifications, and complete online "
+        "degrees; Udacity, which focuses on industry-aligned 'Nanodegrees' in tech fields with hands-on project reviews; "
+        "and fast.ai, which champions a top-down, code-first approach to deep learning. Additionally, platforms like "
+        "Khan Academy provide highly granular, gamified micro-lessons for foundational skills. Together, this rich "
+        "ecosystem bridges the gap between traditional academic theory and practical, industry-demanded skills, making "
+        "high-quality, specialized instruction universally accessible.",
+    ),
+    (
+        "mooc_self_paced_mastery",
+        "Self-Paced Mastery and Collaborative Learning in MOOCs: A defining strength of Massive Open Online Courses "
+        "is the self-paced mastery learning model, which allows students to repeat challenging video segments, re-attempt "
+        "quizzes, and progress at their own speed until they achieve complete comprehension. To combat isolation in "
+        "asynchronous environments, modern MOOCs integrate vibrant collaborative elements, including global discussion "
+        "forums, peer feedback networks, moderated study groups, and community-driven wikis. This unique combination "
+        "of self-paced mastery and crowd-sourced social support fosters a highly motivating, resilient, and "
+        "interactive learning environment that scales effectively to hundreds of thousands of students worldwide.",
+    ),
 ]
