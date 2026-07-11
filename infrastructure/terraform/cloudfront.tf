@@ -23,23 +23,23 @@ resource "aws_cloudfront_distribution" "main" {
   aliases = ["cdn.${var.domain_name}"]
 
   default_cache_behavior {
-    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "ALB"
 
     forwarded_values {
-      query_string = true
-      headers      = ["Host", "Origin", "Authorization", "Access-Control-Request-Headers", "Access-Control-Request-Method"]
+      query_string = false
+      headers      = ["Host", "Origin"]
 
       cookies {
-        forward = "all"
+        forward = "none"
       }
     }
 
     viewer_protocol_policy = "redirect-to-https"
     min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
+    default_ttl            = 86400
+    max_ttl                = 31536000
     compress               = true
   }
 
