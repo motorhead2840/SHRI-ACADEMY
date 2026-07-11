@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import { logger } from "./lib/logger.js";
 import { WebhookHandlers } from "./webhookHandlers.js";
 import router from "./routes/index.js";
+import { contentNegotiation } from "./middleware/contentNegotiation.js";
 
 const app: Express = express();
 
@@ -40,6 +41,7 @@ app.use(
   })
 );
 app.use(cors());
+app.use(contentNegotiation);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
