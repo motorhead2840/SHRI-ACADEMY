@@ -424,7 +424,7 @@ Both frontend applications—**Shri Academy** (`artifacts/shri-academy`) and **S
 1. Open the **AWS Console** and navigate to the **AWS Amplify** service.
 2. Click **Create new app** or **Host web app**.
 3. Select **GitHub** as your repository provider, authorize AWS Amplify, and select the `<your-org>/<your-repo>` repository.
-4. Select the branch you wish to deploy (e.g., `main`).
+4. Select the branch you wish to deploy (specifically, `webapp`).
 
 ### 2. Configure Monorepo Build Settings
 Amplify automatically detects the workspace-based monorepo configuration using the root-level `amplify.yml` or the sub-folder specific `amplify.yml` files we've configured. Under the **Build Settings** step in the setup wizard:
