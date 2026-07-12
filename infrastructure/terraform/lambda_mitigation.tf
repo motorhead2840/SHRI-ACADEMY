@@ -129,7 +129,7 @@ resource "aws_lambda_function" "threat_mitigation" {
 
 resource "aws_cloudwatch_log_group" "threat_mitigation" {
   name              = "/aws/lambda/${local.threat_mitigation_function_name}"
-  retention_in_days = 30
+  retention_in_days = var.threat_mitigation_log_retention_days
 }
 
 # ── Confluent Kafka Trigger Mapping ──────────────────────────────────────────

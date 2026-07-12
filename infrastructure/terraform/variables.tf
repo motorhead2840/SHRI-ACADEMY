@@ -171,3 +171,9 @@ variable "threat_mitigation_batch_size" {
   type        = number
   default     = 5
 }
+
+variable "threat_mitigation_log_retention_days" {
+  description = "Retention in days for the CloudWatch log group of the threat mitigation Lambda"
+  type        = number
+  default     = 30
+}
