@@ -183,3 +183,9 @@ variable "confluent_privatelink_service_name" {
   type        = string
   default     = "com.amazonaws.vpce.us-east-1.vpce-svc-0123456789abcdef0"
 }
+
+variable "eks_cluster_arn" {
+  description = "The ARN of the EKS cluster for orchestrating SageMaker HyperPod"
+  type        = string
+  default     = "arn:aws:eks:us-east-1:123456789012:cluster/sri-production-eks"
+}

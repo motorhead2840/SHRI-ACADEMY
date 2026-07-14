@@ -19,7 +19,7 @@ resource "aws_sagemaker_cluster" "shri_saraswathi_hyperpod" {
 
     orchestrator {
       eks {
-        cluster_arn = "arn:aws:eks:${var.aws_region}:${data.aws_caller_identity.current.account_id}:cluster/${var.project}-${var.environment}-eks"
+        cluster_arn = var.eks_cluster_arn
       }
     }
   }

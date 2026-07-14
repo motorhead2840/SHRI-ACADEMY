@@ -97,7 +97,7 @@ def fetch_confluent_credentials() -> Dict[str, str]:
                 log.info(f"Successfully loaded configuration from {path}")
                 return credentials
         except Exception as e:
-            log.warning(f"Could not retrieve resource from location: {path}")
+            log.warning(f"Could not retrieve resource from location: {path} - {e}")
 
     return credentials
 
@@ -202,8 +202,8 @@ def run_julia_nondual_notations(omega_in: List[float]) -> List[float]:
     if _julia_available and jl is not None:
         try:
             # Express unitive mathematical notation in Julia
-            jl.seval(f"""
-            function unitive_phase_shift(omega::Vector{{Float64}})
+            jl.seval("""
+            function unitive_phase_shift(omega::Vector{Float64})
                 # Non-dual transformation based on Nataraja Guru principles
                 # Harmonizing the inner and outer dualistic states
                 sigma = omega[1] # Existence-Density
@@ -213,7 +213,7 @@ def run_julia_nondual_notations(omega_in: List[float]) -> List[float]:
                 
                 # Unitive non-dual scale transformation
                 u_factor = (sigma + beta + upsilon) / (3.0 + xi)
-                return [sigma * u_factor, beta * cos(beta), upsilon * u_factor, xi * {STOCHASTIC_FLUX_DAMPENING}]
+                return [sigma * u_factor, beta * cos(beta), upsilon * u_factor, xi * 0.9]
             end
             """)
             omega_out = jl.unitive_phase_shift(omega_in)
