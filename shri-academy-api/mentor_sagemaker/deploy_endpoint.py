@@ -22,7 +22,10 @@ import os
 
 import boto3
 import sagemaker
+from botocore.exceptions import ClientError
 from sagemaker.huggingface import HuggingFaceModel
+
+from mentor_sagemaker import is_capacity_error
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -64,22 +67,74 @@ def deploy(
         env=environment,
     )
 
-    log.info(f"Deploying to endpoint '{endpoint_name}' on {instance_type} ...")
-    predictor = model.deploy(
-        initial_instance_count=1,
-        instance_type=instance_type,
-        endpoint_name=endpoint_name,
-    )
+    fallbacks = ["ml.g4dn.xlarge", "ml.g5.xlarge", "ml.g4dn.2xlarge", "ml.g5.2xlarge"]
+    candidates = [instance_type]
+    for fb in fallbacks:
+        if fb not in candidates:
+            candidates.append(fb)
 
-    result = {
-        "endpoint_name": endpoint_name,
-        "model_data": model_data_s3,
-        "instance_type": instance_type,
-        "region": region,
-        "status": "InService",
-    }
-    log.info(f"Endpoint deployed: {result}")
-    return result
+    last_error = None
+    for i, current_instance in enumerate(candidates):
+        # If we are retrying, clean up any previous partially created endpoint with the same name
+        if i > 0:
+            try:
+                log.info(f"Cleaning up potentially conflicting endpoint '{endpoint_name}' before retry...")
+                session.delete_endpoint(endpoint_name)
+            except ClientError as cleanup_err:
+                error_code = cleanup_err.response.get("Error", {}).get("Code", "")
+                if "ValidationException" in error_code or "ResourceNotFound" in error_code:
+                    log.info(f"Endpoint '{endpoint_name}' did not exist. No cleanup needed.")
+                else:
+                    log.warning(f"Cleanup of existing endpoint '{endpoint_name}' failed: {cleanup_err}")
+            except Exception as cleanup_err:
+                log.warning(f"Cleanup of existing endpoint '{endpoint_name}' failed due to unexpected error: {cleanup_err}")
+
+            try:
+                session.delete_endpoint_config(endpoint_name)
+            except ClientError as cleanup_err:
+                error_code = cleanup_err.response.get("Error", {}).get("Code", "")
+                if "ValidationException" in error_code or "ResourceNotFound" in error_code:
+                    log.info(f"Endpoint config '{endpoint_name}' did not exist. No cleanup needed.")
+                else:
+                    log.warning(f"Cleanup of existing endpoint config '{endpoint_name}' failed: {cleanup_err}")
+            except Exception as cleanup_err:
+                log.warning(f"Cleanup of existing endpoint config '{endpoint_name}' failed due to unexpected error: {cleanup_err}")
+
+        log.info(f"Deploying to endpoint '{endpoint_name}' on {current_instance} (attempt {i+1}/{len(candidates)}) ...")
+        try:
+            predictor = model.deploy(
+                initial_instance_count=1,
+                instance_type=current_instance,
+                endpoint_name=endpoint_name,
+            )
+            result = {
+                "endpoint_name": endpoint_name,
+                "model_data": model_data_s3,
+                "instance_type": current_instance,
+                "region": region,
+                "status": "InService",
+            }
+            log.info(f"Endpoint deployed: {result}")
+            return result
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            error_message = e.response.get("Error", {}).get("Message", "")
+            last_error = e
+
+            if is_capacity_error(error_code, error_message):
+                log.warning(f"Capacity error on {current_instance}: {error_code} - {error_message}. Trying next fallback...")
+                continue
+            else:
+                log.error(f"Non-capacity error on {current_instance}: {e}")
+                raise e
+        except Exception as e:
+            log.error(f"Unexpected error on {current_instance}: {e}")
+            raise e
+
+    # If we exited the loop, it means we ran out of candidates
+    msg = "All fallback instance types exhausted for endpoint deployment."
+    log.error(msg)
+    raise RuntimeError(msg) from last_error
 
 
 def main():
