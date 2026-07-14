@@ -242,7 +242,6 @@ resource "aws_sagemaker_notebook_instance_lifecycle_configuration" "cyberdemon_l
 
     # 3. Install auto-stop script for notebook idle shutdown (after 60 mins of inactivity)
     cat << 'AUTO_EOF' > /usr/local/bin/autostop.py
-import sys
 import re
 import urllib.request
 import json
@@ -259,7 +258,7 @@ def get_jupyter_info():
             res = subprocess.run(["jupyter", "notebook", "list"], capture_output=True, text=True)
             out = res.stdout
         
-        match = re.search(r"http://localhost:(\\d+)/\\?\\?token=([a-f0-9]+)", out)
+        match = re.search(r"http://localhost:(\\d+)/\\?token=([a-f0-9]+)", out)
         if not match:
             match = re.search(r"http://localhost:(\\d+)/", out)
         if match:
@@ -282,7 +281,7 @@ def check_idle():
             sessions = json.loads(response.read().decode())
     except Exception as e:
         print(f"Error calling Jupyter sessions API: {e}")
-        return True
+        return False # Err on the side of caution: do not shutdown on API/network errors
     
     if not sessions:
         return True
@@ -411,7 +410,6 @@ resource "aws_sagemaker_notebook_instance_lifecycle_configuration" "shri_lc" {
 
     # 3. Install auto-stop script for notebook idle shutdown (after 60 mins of inactivity)
     cat << 'AUTO_EOF' > /usr/local/bin/autostop.py
-import sys
 import re
 import urllib.request
 import json
@@ -428,7 +426,7 @@ def get_jupyter_info():
             res = subprocess.run(["jupyter", "notebook", "list"], capture_output=True, text=True)
             out = res.stdout
         
-        match = re.search(r"http://localhost:(\\d+)/\\?\\?token=([a-f0-9]+)", out)
+        match = re.search(r"http://localhost:(\\d+)/\\?token=([a-f0-9]+)", out)
         if not match:
             match = re.search(r"http://localhost:(\\d+)/", out)
         if match:
@@ -451,7 +449,7 @@ def check_idle():
             sessions = json.loads(response.read().decode())
     except Exception as e:
         print(f"Error calling Jupyter sessions API: {e}")
-        return True
+        return False # Err on the side of caution: do not shutdown on API/network errors
     
     if not sessions:
         return True
