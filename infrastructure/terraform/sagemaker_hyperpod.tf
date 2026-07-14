@@ -93,6 +93,10 @@ resource "aws_vpc_endpoint" "confluent_privatelink" {
 # ─── SageMaker Studio Integration with HyperPod ─────────────────────────────
 # Attach HyperPod resource settings to the SageMaker Studio Domain via default settings or user profile.
 
+data "aws_sagemaker_prebuilt_ecr_image" "hyperpod_datascience" {
+  repository_name = "sagemaker-data-science-310-v1"
+}
+
 resource "aws_sagemaker_user_profile" "hyperpod_developer" {
   domain_id         = aws_sagemaker_domain.main.id
   user_profile_name = "${var.project}-${var.environment}-hyperpod-dev"
@@ -103,7 +107,7 @@ resource "aws_sagemaker_user_profile" "hyperpod_developer" {
     jupyter_server_app_settings {
       default_resource_spec {
         instance_type       = "system"
-        sagemaker_image_arn = data.aws_sagemaker_prebuilt_ecr_image.datascience.registry_path
+        sagemaker_image_arn = data.aws_sagemaker_prebuilt_ecr_image.hyperpod_datascience.registry_path
       }
     }
 

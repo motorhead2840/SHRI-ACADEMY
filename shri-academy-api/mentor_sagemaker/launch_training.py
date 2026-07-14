@@ -92,9 +92,8 @@ def launch(
     if omega_state_vector:
         hyperparameters["omega_state_vector"] = json.dumps(omega_state_vector)
 
-    if registered_model_name == "Shri-Ma-Saraswathi" or use_hyperpod_cluster:
-        if instance_type == TRAINING_INSTANCE:
-            instance_type = "ml.g5.24xlarge"
+    if (registered_model_name == "Shri-Ma-Saraswathi" or use_hyperpod_cluster) and instance_type == TRAINING_INSTANCE:
+        instance_type = "ml.g5.24xlarge"
 
     # Candidate instance types for fallback on capacity errors
     fallbacks = ["ml.g5.24xlarge", "ml.p4d.24xlarge", "ml.g4dn.2xlarge", "ml.g5.2xlarge", "ml.p3.2xlarge"]

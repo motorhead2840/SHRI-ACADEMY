@@ -78,11 +78,12 @@ def fetch_confluent_credentials() -> Dict[str, str]:
     region = os.environ.get("AWS_REGION", "us-east-1")
     client = boto3.client("secretsmanager", region_name=region)
 
-    # Note: 'sri/production/confluent/app-key' uses 'sri' instead of 'shri' 
-    # to maintain consistency with the Terraform project name prefix defined in variables.tf.
+    # Note: 'shri/production/confluent/app-key' and 'sri/production/confluent/app-key'
+    # are both checked to maintain maximum compatibility across codebase conventions.
     credential_paths = [
         "/confluent/app-key",
-        "sri/production/confluent/app-key"
+        "sri/production/confluent/app-key",
+        "shri/production/confluent/app-key"
     ]
 
     for path in credential_paths:
@@ -213,9 +214,9 @@ def run_julia_nondual_notations(omega_in: List[float]) -> List[float]:
                 
                 # Unitive non-dual scale transformation
                 u_factor = (sigma + beta + upsilon) / (3.0 + xi)
-                return [sigma * u_factor, beta * cos(beta), upsilon * u_factor, xi * {damping_constant}]
+                return [sigma * u_factor, beta * cos(beta), upsilon * u_factor, xi * """ + str(STOCHASTIC_FLUX_DAMPING) + """]
             end
-            """.format(damping_constant=STOCHASTIC_FLUX_DAMPING))
+            """)
             omega_out = julia_main.unitive_phase_shift(omega_in)
             return [float(x) for x in omega_out]
         except Exception as e:
