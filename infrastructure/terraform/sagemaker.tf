@@ -258,7 +258,7 @@ def get_jupyter_info():
             res = subprocess.run(["jupyter", "notebook", "list"], capture_output=True, text=True)
             out = res.stdout
         
-        match = re.search(r"http://localhost:(\\d+)/\\?token=([a-f0-9]+)", out)
+        match = re.search(r"http://localhost:(\\d+)/\\?token=([A-Za-z0-9_-]+)", out)
         if not match:
             match = re.search(r"http://localhost:(\\d+)/", out)
         if match:
@@ -267,6 +267,7 @@ def get_jupyter_info():
             return port, token
     except Exception as e:
         print(f"Error listing jupyter servers: {e}")
+    print("Warning: Jupyter server detection failed or returned empty. Falling back to default port 8888.")
     return "8888", ""
 
 def check_idle():
@@ -426,7 +427,7 @@ def get_jupyter_info():
             res = subprocess.run(["jupyter", "notebook", "list"], capture_output=True, text=True)
             out = res.stdout
         
-        match = re.search(r"http://localhost:(\\d+)/\\?token=([a-f0-9]+)", out)
+        match = re.search(r"http://localhost:(\\d+)/\\?token=([A-Za-z0-9_-]+)", out)
         if not match:
             match = re.search(r"http://localhost:(\\d+)/", out)
         if match:
@@ -435,6 +436,7 @@ def get_jupyter_info():
             return port, token
     except Exception as e:
         print(f"Error listing jupyter servers: {e}")
+    print("Warning: Jupyter server detection failed or returned empty. Falling back to default port 8888.")
     return "8888", ""
 
 def check_idle():
