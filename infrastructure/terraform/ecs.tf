@@ -157,8 +157,8 @@ resource "aws_ecs_task_definition" "api_server" {
   family                   = "${var.project}-${var.environment}-api-server"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 512
-  memory                   = 1024
+  cpu                      = 1024
+  memory                   = 2048
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
@@ -337,7 +337,7 @@ resource "aws_ecs_service" "shri_api" {
 # ─── Auto Scaling ─────────────────────────────────────────────────────────────
 
 resource "aws_appautoscaling_target" "api_server" {
-  max_capacity       = 3
+  max_capacity       = 10
   min_capacity       = 1
   resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.api_server.name}"
   scalable_dimension = "ecs:service:DesiredCount"
