@@ -38,7 +38,7 @@ resource "aws_elasticache_replication_group" "main" {
   at_rest_encryption_enabled = true
   transit_encryption_enabled = true
 
-  snapshot_retention_limit = 5
+  snapshot_retention_limit = 2
   snapshot_window          = "03:00-05:00"
 
   log_delivery_configuration {
@@ -51,5 +51,5 @@ resource "aws_elasticache_replication_group" "main" {
 
 resource "aws_cloudwatch_log_group" "redis_slow" {
   name              = "/elasticache/${var.project}-${var.environment}/slow-log"
-  retention_in_days = 14
+  retention_in_days = 7
 }
