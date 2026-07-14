@@ -24,7 +24,10 @@ from datetime import datetime
 
 import boto3
 import sagemaker
+from botocore.exceptions import ClientError
 from sagemaker.huggingface import HuggingFace
+
+from mentor_sagemaker import is_capacity_error
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -83,41 +86,73 @@ def launch(
         "lora_dropout": "0.1",
     }
 
-    estimator = HuggingFace(
-        entry_point="train.py",
-        source_dir=os.path.join(os.path.dirname(__file__), "training"),
-        role=role_arn,
-        sagemaker_session=session,
-        instance_type=instance_type,
-        instance_count=1,
-        transformers_version=HF_CONTAINER["transformers_version"],
-        pytorch_version=HF_CONTAINER["pytorch_version"],
-        py_version=HF_CONTAINER["py_version"],
-        hyperparameters=hyperparameters,
-        environment=environment,
-        volume_size=50,  # GB — model + cache
-        max_run=3 * 3600,  # 3 hour ceiling
-        output_path=f"s3://{bucket}/mentor-training/output",
-        base_job_name="shri-mentor",
-    )
+    # Candidate instance types for fallback on capacity errors
+    fallbacks = ["ml.g4dn.2xlarge", "ml.g5.2xlarge", "ml.p3.2xlarge"]
+    candidates = [instance_type]
+    for fb in fallbacks:
+        if fb not in candidates:
+            candidates.append(fb)
 
-    log.info(f"Submitting training job '{job_name}' on {instance_type} ...")
-    estimator.fit(
-        {"training": data_s3_uri.rsplit("/", 1)[0]},  # S3 prefix, not file
-        job_name=job_name,
-        wait=wait,
-        logs=wait,
-    )
+    last_error = None
+    for i, current_instance in enumerate(candidates):
+        # Generate a unique job name for each attempt to avoid name conflicts on SageMaker
+        current_job_name = job_name if i == 0 else f"{job_name}-fallback-{i}"
 
-    result = {
-        "job_name": estimator.latest_training_job.name,
-        "model_output_s3": f"s3://{bucket}/mentor-training/output/{estimator.latest_training_job.name}/output/model.tar.gz",
-        "instance_type": instance_type,
-        "model_id": model_id,
-        "status": "InProgress" if not wait else "Completed",
-    }
-    log.info(f"Training job result: {result}")
-    return result
+        estimator = HuggingFace(
+            entry_point="train.py",
+            source_dir=os.path.join(os.path.dirname(__file__), "training"),
+            role=role_arn,
+            sagemaker_session=session,
+            instance_type=current_instance,
+            instance_count=1,
+            transformers_version=HF_CONTAINER["transformers_version"],
+            pytorch_version=HF_CONTAINER["pytorch_version"],
+            py_version=HF_CONTAINER["py_version"],
+            hyperparameters=hyperparameters,
+            environment=environment,
+            volume_size=50,  # GB — model + cache
+            max_run=3 * 3600,  # 3 hour ceiling
+            output_path=f"s3://{bucket}/mentor-training/output",
+            base_job_name="shri-mentor",
+        )
+
+        log.info(f"Submitting training job '{current_job_name}' on {current_instance} (attempt {i+1}/{len(candidates)}) ...")
+        try:
+            estimator.fit(
+                {"training": data_s3_uri.rsplit("/", 1)[0]},  # S3 prefix, not file
+                job_name=current_job_name,
+                wait=wait,
+                logs=wait,
+            )
+            # Success! Let's return the result
+            result = {
+                "job_name": estimator.latest_training_job.name,
+                "model_output_s3": f"s3://{bucket}/mentor-training/output/{estimator.latest_training_job.name}/output/model.tar.gz",
+                "instance_type": current_instance,
+                "model_id": model_id,
+                "status": "InProgress" if not wait else "Completed",
+            }
+            log.info(f"Training job started successfully: {result}")
+            return result
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            error_message = e.response.get("Error", {}).get("Message", "")
+            last_error = e
+
+            if is_capacity_error(error_code, error_message):
+                log.warning(f"Capacity error on {current_instance}: {error_code} - {error_message}. Trying next fallback...")
+                continue
+            else:
+                log.error(f"Non-capacity error on {current_instance}: {e}")
+                raise e
+        except Exception as e:
+            log.error(f"Unexpected error on {current_instance}: {e}")
+            raise e
+
+    # If we exited the loop, it means we ran out of candidates
+    msg = "All fallback instance types exhausted due to capacity issues."
+    log.error(msg)
+    raise RuntimeError(msg) from last_error
 
 
 def main():
