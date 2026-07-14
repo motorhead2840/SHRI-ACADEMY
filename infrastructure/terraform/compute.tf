@@ -158,7 +158,7 @@ resource "aws_autoscaling_group" "arm_workers" {
       override { instance_type = "m6g.large" }
     }
     instances_distribution {
-      on_demand_base_capacity                  = 0
+      on_demand_base_capacity                  = 1
       on_demand_percentage_above_base_capacity = 0
       spot_allocation_strategy                 = "price-capacity-optimized"
     }

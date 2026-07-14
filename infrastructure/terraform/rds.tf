@@ -69,7 +69,7 @@ resource "aws_db_instance" "main" {
 
   performance_insights_enabled          = true
   performance_insights_retention_period = 7
-  monitoring_interval                   = 300
+  monitoring_interval                   = 60
   monitoring_role_arn                   = aws_iam_role.rds_monitoring.arn
 
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
