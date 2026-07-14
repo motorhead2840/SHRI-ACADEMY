@@ -29,6 +29,20 @@ from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
+# Dynamic mlflow import and install
+try:
+    import mlflow
+except ImportError:
+    log.info("mlflow not found inside container, installing dynamically...")
+    import subprocess
+    import sys
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "mlflow", "pypdf"])
+        import mlflow
+    except Exception as install_err:
+        log.warning(f"Could not install mlflow inside container: {install_err}")
+        mlflow = None
+
 # ── SageMaker paths ───────────────────────────────────────────────────────────
 SM_TRAIN_DIR = os.environ.get("SM_CHANNEL_TRAINING", "/opt/ml/input/data/training")
 SM_MODEL_DIR = os.environ.get("SM_MODEL_DIR", "/opt/ml/model")
@@ -48,6 +62,7 @@ def parse_args():
     p.add_argument("--lora_dropout", type=float, default=0.1)
     p.add_argument("--warmup_ratio", type=float, default=0.05)
     p.add_argument("--lr_scheduler_type", default="cosine")
+    p.add_argument("--registered_model_name", default="Shri-Ma-Saraswathi")
     return p.parse_args()
 
 
@@ -157,6 +172,20 @@ def main():
         packing=False,
     )
 
+    # Set up MLflow if imported
+    mlflow_run = None
+    if mlflow:
+        try:
+            os.makedirs(SM_MODEL_DIR, exist_ok=True)
+            db_path = os.path.join(SM_MODEL_DIR, "mlflow.db")
+            mlflow.set_tracking_uri(f"sqlite:///{db_path}")
+            mlflow.set_experiment("shri-academy-mentor")
+            mlflow_run = mlflow.start_run()
+            mlflow.log_params(vars(args))
+            log.info("Initialized MLflow tracking run.")
+        except Exception as mlflow_init_err:
+            log.warning(f"Failed to initialize MLflow tracking: {mlflow_init_err}")
+
     log.info("Starting fine-tuning ...")
     trainer.train()
 
@@ -171,6 +200,32 @@ def main():
     os.makedirs(SM_OUTPUT_DIR, exist_ok=True)
     with open(metrics_path, "w") as f:
         json.dump({"training_loss": metrics[-1].get("train_loss", -1) if metrics else -1}, f)
+
+    # Log metrics and model registry details to MLflow
+    if mlflow and mlflow_run:
+        try:
+            # Log training metrics
+            for idx, metric_step in enumerate(metrics):
+                step = metric_step.get("step", idx)
+                for metric_name, value in metric_step.items():
+                    if metric_name != "step" and isinstance(value, (int, float)):
+                        mlflow.log_metric(metric_name, value, step=step)
+
+            # Log directory as artifact and register
+            mlflow.log_artifacts(SM_MODEL_DIR, artifact_path="model")
+            
+            model_uri = f"runs:/{mlflow_run.info.run_id}/model"
+            registered_name = getattr(args, "registered_model_name", "Shri-Ma-Saraswathi")
+            log.info(f"Registering model in MLflow Model Registry as '{registered_name}' with URI '{model_uri}'")
+            mlflow.register_model(model_uri=model_uri, name=registered_name)
+            log.info("Successfully registered model in MLflow Model Registry.")
+        except Exception as mlflow_log_err:
+            log.warning(f"Error logging or registering with MLflow: {mlflow_log_err}")
+        finally:
+            try:
+                mlflow.end_run()
+            except Exception:
+                pass
 
     log.info("Training complete.")
 
