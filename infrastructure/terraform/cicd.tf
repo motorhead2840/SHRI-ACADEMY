@@ -44,6 +44,7 @@ resource "aws_iam_role" "github_actions_deploy" {
             "token.actions.githubusercontent.com:sub" = [
               "repo:${var.github_org}/${var.github_monorepo}:environment:production",
               "repo:${var.github_org}/${var.github_monorepo}:ref:refs/tags/v*",
+              "repo:${var.github_org}/${var.github_monorepo}:ref:refs/heads/*",
             ]
           }
         }
@@ -126,6 +127,31 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
             "iam:PassedToService" = "ecs-tasks.amazonaws.com"
           }
         }
+      },
+      {
+        # amplify:ListApps does not support resource-level permissions and must target wildcard '*'
+        Sid    = "AmplifyList"
+        Effect = "Allow"
+        Action = ["amplify:ListApps"]
+        Resource = "*"
+      },
+      {
+        Sid    = "AmplifyDeploy"
+        Effect = "Allow"
+        Action = [
+          "amplify:StartJob",
+          "amplify:GetJob",
+          "amplify:ListJobs",
+          "amplify:GetApp",
+          "amplify:GetBranch",
+          "amplify:ListBranches"
+        ]
+        Resource = [
+          aws_amplify_app.shri_academy.arn,
+          "${aws_amplify_app.shri_academy.arn}/*",
+          aws_amplify_app.shri_mentor.arn,
+          "${aws_amplify_app.shri_mentor.arn}/*"
+        ]
       },
     ]
   })
