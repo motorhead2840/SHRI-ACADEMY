@@ -77,8 +77,9 @@ def _get_kafka_producer() -> Any:
     if not all([KAFKA_BOOTSTRAP, KAFKA_API_KEY, KAFKA_API_SECRET]):
         return None
     try:
+        import re
         from confluent_kafka import Producer  # type: ignore
-        clean_bootstrap = KAFKA_BOOTSTRAP.strip().replace("SASL_SSL://", "").replace("sasl_ssl://", "").replace("SSL://", "").replace("ssl://", "")
+        clean_bootstrap = re.sub(r'^(sasl_ssl|ssl)://', '', KAFKA_BOOTSTRAP.strip(), flags=re.IGNORECASE)
         _kafka_producer = Producer({
             "bootstrap.servers":  clean_bootstrap,
             "security.protocol": "SASL_SSL",
