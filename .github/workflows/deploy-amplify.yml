@@ -1,0 +1,82 @@
+name: Deploy Amplify Apps on Push
+
+on:
+  push:
+    branches:
+      - main
+      - webapp
+  workflow_dispatch:
+
+# Never let two deploys race; never cancel an in-flight deploy.
+concurrency:
+  group: deploy-amplify-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # OIDC - required for aws-actions/configure-aws-credentials
+  contents: read
+
+jobs:
+  deploy-amplify:
+    name: Deploy AWS Amplify Apps
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      AMPLIFY_APPS: "shri-academy shri-mentor"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Deploy Amplify Apps
+        run: |
+          for APP_NAME in $AMPLIFY_APPS; do
+            echo "=================================================="
+            echo "Starting deployment for App: $APP_NAME"
+            echo "=================================================="
+            
+            # Input validation to prevent potential injection issues
+            if [[ ! "$APP_NAME" =~ ^[a-zA-Z0-9-]+$ ]]; then
+              echo "❌ Invalid app name format: $APP_NAME"
+              exit 1
+            fi
+            
+            # Retrieve App ID securely using jq parameter binding
+            APP_ID=$(aws amplify list-apps | jq -r --arg name "$APP_NAME" '.apps[] | select(.name == $name) | .appId')
+            if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
+              echo "❌ Could not find Amplify App '$APP_NAME'"
+              exit 1
+            fi
+            echo "Found $APP_NAME App ID: $APP_ID"
+            
+            # We deploy the branch matching the push event (e.g. main or webapp)
+            BRANCH_NAME="${{ github.ref_name }}"
+            echo "Deploying branch: $BRANCH_NAME"
+            
+            # Input validation to prevent potential injection issues
+            if [[ ! "$BRANCH_NAME" =~ ^[a-zA-Z0-9_/-]+$ ]]; then
+              echo "❌ Invalid branch name format: $BRANCH_NAME"
+              exit 1
+            fi
+            
+            # Check if branch exists in the Amplify app first, securely using jq
+            BRANCH_EXISTS=$(aws amplify list-branches --app-id "$APP_ID" | jq -r --arg branch "$BRANCH_NAME" '.branches[] | select(.branchName == $branch) | .branchName')
+            if [ -z "$BRANCH_EXISTS" ] || [ "$BRANCH_EXISTS" = "null" ]; then
+              echo "::warning::Branch '$BRANCH_NAME' is not registered on Amplify App '$APP_NAME'. Skipping deployment for this app."
+            else
+              JOB_INFO=$(aws amplify start-job --app-id "$APP_ID" --branch-name "$BRANCH_NAME" --job-type RELEASE)
+              if [ $? -ne 0 ] || [ -z "$JOB_INFO" ] || [ "$JOB_INFO" = "null" ]; then
+                echo "❌ Failed to start build job for $APP_NAME on branch $BRANCH_NAME"
+                exit 1
+              fi
+              echo "Successfully started build job for $APP_NAME branch $BRANCH_NAME:"
+              echo "$JOB_INFO" | jq .
+            fi
+            echo ""
+          done
