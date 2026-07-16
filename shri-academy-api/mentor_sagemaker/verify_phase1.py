@@ -324,9 +324,9 @@ def main():
     print(f"  PROJECT PREFIX:      {project_name}")
     print(f"  ENVIRONMENT:         {environment}")
     print(f"  AWS_REGION:          {aws_region}")
-    get_suffix = lambda derived_flag: " (derived/fallback)" if derived_flag else ""
-    print(f"  SAGEMAKER_ROLE_ARN:  {sagemaker_role_arn}{get_suffix(role_was_derived)}")
-    print(f"  SAGEMAKER_S3_BUCKET: {sagemaker_s3_bucket}{get_suffix(bucket_was_derived)}")
+    format_derived_suffix = lambda derived_flag: " (derived/fallback)" if derived_flag else ""
+    print(f"  SAGEMAKER_ROLE_ARN:  {sagemaker_role_arn}{format_derived_suffix(role_was_derived)}")
+    print(f"  SAGEMAKER_S3_BUCKET: {sagemaker_s3_bucket}{format_derived_suffix(bucket_was_derived)}")
     print(f"  MENTOR_API_SECRET:   *** [SET]" if mentor_api_secret else "  MENTOR_API_SECRET:   None")
     print(f"  NVIDIA_API_KEY:      *** [SET]" if nvidia_api_key else "  NVIDIA_API_KEY:      None")
     print(f"  HF_TOKEN:            *** [SET]" if hf_token else "  HF_TOKEN:            None")

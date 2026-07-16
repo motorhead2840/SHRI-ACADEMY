@@ -188,9 +188,9 @@ def run_live_test(api_key: str, bucket_name: str, region: str) -> bool:
         # Format record
         record = to_training_record(pair["question"], pair["answer"], system_prompt=SYSTEM_PROMPT_SHRI)
         
-        # Save to local file using a cross-platform temp directory
-        test_dir = Path(tempfile.gettempdir()) / "mentor-training-test"
-        test_dir.mkdir(parents=True, exist_ok=True)
+        # Save to local file using a unique temporary directory
+        temp_dir_str = tempfile.mkdtemp()
+        test_dir = Path(temp_dir_str)
         local_file = test_dir / "test_train.jsonl"
         with open(local_file, "w", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -202,9 +202,10 @@ def run_live_test(api_key: str, bucket_name: str, region: str) -> bool:
         s3_uri = upload_to_s3(str(local_file), bucket_name, test_s3_key, region)
         logger.info(f"Integration test S3 upload successful: {s3_uri}")
         
-        # Cleanup local test file
+        # Cleanup local test file and directory
         if local_file.exists():
             local_file.unlink()
+        test_dir.rmdir()
             
         return True
     except Exception as e:
