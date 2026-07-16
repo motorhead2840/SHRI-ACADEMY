@@ -22,10 +22,15 @@ import logging
 import os
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Header
+
+from async_kafka_utils import publish_event_async
+from sagemaker_client import invoke_shri_mentor_async
+
 
 try:
     import boto3
@@ -33,7 +38,7 @@ try:
 except ImportError:
     boto3 = None  # type: ignore
     _boto3_available = False
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 log = logging.getLogger(__name__)
 
@@ -302,3 +307,74 @@ async def get_status(_: bool = Depends(_require_mentor)):
         endpoint_status=endpoint_status,
         eval_mode_active=eval_mode and bool(endpoint_name),
     )
+
+
+# ── Combined Async Flow Route ───────────────────────────────────────────────────
+
+class AsyncQueryRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=4000)
+    user_id: str = Field(..., min_length=1, max_length=128)
+    topic: str = Field(default="shri-mentor-events")
+
+    @field_validator("topic")
+    @classmethod
+    def validate_topic(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Kafka topic cannot be empty or blank")
+        return v.strip()
+
+
+class AsyncQueryResponse(BaseModel):
+    response: Optional[str]
+    status: str
+
+
+@router.post("/async-query", response_model=AsyncQueryResponse)
+async def async_query(req: AsyncQueryRequest):
+    """
+    Example combined async flow:
+    1. Publishes a query event asynchronously to Confluent Cloud (Kafka)
+    2. Invokes the SageMaker endpoint asynchronously using aioboto3
+    3. Publishes a response event asynchronously to Confluent Cloud (Kafka)
+    """
+    # Step 1: Publish incoming query event to Kafka
+    start_time = datetime.now(timezone.utc)
+    query_event = {
+        "event_type": "query_received",
+        "user_id": req.user_id,
+        "query": req.query,
+        "timestamp_seconds": start_time.timestamp(),
+        "timestamp_iso": start_time.isoformat(),
+    }
+    try:
+        await publish_event_async(req.topic, query_event)
+    except Exception as e:
+        log.warning(f"Failed to publish query_received event to Kafka: {e}")
+
+    # Step 2: Invoke SageMaker asynchronously
+    response_text = await invoke_shri_mentor_async(req.query, req.user_id)
+
+    # Step 3: Publish response generated event to Kafka
+    end_time = datetime.now(timezone.utc)
+    latency = (end_time - start_time).total_seconds()
+    response_event = {
+        "event_type": "response_generated",
+        "user_id": req.user_id,
+        "query": req.query,
+        "response": response_text,
+        "latency_seconds": latency,
+        "timestamp_seconds": end_time.timestamp(),
+        "timestamp_iso": end_time.isoformat(),
+    }
+
+    try:
+        await publish_event_async(req.topic, response_event)
+    except Exception as e:
+        log.warning(f"Failed to publish response_generated event to Kafka: {e}")
+
+    return AsyncQueryResponse(
+        response=response_text,
+        status="success" if response_text is not None else "failed"
+    )
+
+
