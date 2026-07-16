@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """
-verify_phase1.py — Verify IAM roles, S3 buckets, Feature Store groups, and setup environment variables.
+verify_phase1.py - Verify IAM roles, S3 buckets, Feature Store groups, and setup environment variables.
 Supports both active AWS credential checking and dry-run static validation.
 """
 
 import os
+import re
 import sys
 import secrets
 import logging
 from pathlib import Path
+
+PLACEHOLDER_ACCOUNT_ID = "123456789012"
+S3_BUCKET_TF_REGEX = r'sagemaker\s*=\s*"\$\{var\.project\}-\$\{var\.environment\}-sagemaker"'
 
 # Ensure we can import from parent directory if needed
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -40,7 +44,7 @@ def get_aws_client(service_name: str, region: str):
         return None
     try:
         return boto3.client(service_name, region_name=region)
-    except (NoCredentialsError, Exception):
+    except (NoCredentialsError, ClientError):
         return None
 
 
@@ -134,31 +138,36 @@ def main():
 
     logger.info("=== Phase 1: Infrastructure and Environment Configuration Verification ===")
     
-    # Load current configuration
-    project = os.environ.get("PROJECT_NAME_PREFIX", "sri")
+    # Load current configuration. In the Terraform infrastructure, project is defined as "sri"
+    # and environment is "production" (e.g. s3 bucket is "sri-production-sagemaker").
+    project_prefix = os.environ.get("PROJECT_NAME_PREFIX", "sri")
     environment = os.environ.get("ENVIRONMENT", "production")
     
     aws_region = os.environ.get("AWS_REGION", "us-east-1")
     sagemaker_role_arn = os.environ.get("SAGEMAKER_ROLE_ARN")
+    
+    # SECOPS_S3_BUCKET is the historical fallback bucket used originally in the codebase
     sagemaker_s3_bucket = os.environ.get("SAGEMAKER_S3_BUCKET") or os.environ.get("SECOPS_S3_BUCKET")
     mentor_api_secret = os.environ.get("MENTOR_API_SECRET")
+    
+    # generate_data.py falls back to OpenAI models (like gpt-4o) if the API key begins with "sk-"
     nvidia_api_key = os.environ.get("NVIDIA_API_KEY") or os.environ.get("OPENAI_API_KEY")
     hf_token = os.environ.get("HF_TOKEN")
 
     # If sagemaker_role_arn or sagemaker_s3_bucket are not set, derive from defaults
-    default_role_name = f"{project}-{environment}-sagemaker"
-    default_bucket_name = f"{project}-{environment}-sagemaker"
+    default_role_name = f"{project_prefix}-{environment}-sagemaker"
+    default_bucket_name = f"{project_prefix}-{environment}-sagemaker"
     
     derived_role = False
     if not sagemaker_role_arn:
         # We need an account ID to derive a full ARN, so let's check if boto3 can tell us, else we use placeholder
-        account_id = "123456789012"
+        account_id = PLACEHOLDER_ACCOUNT_ID
         try:
             if _boto3_available and boto3:
                 sts = boto3.client("sts")
                 account_id = sts.get_caller_identity()["Account"]
-        except Exception:
-            pass
+        except (NoCredentialsError, ClientError):
+            logger.info("Could not retrieve AWS caller identity dynamically (NoCredentials or ClientError).")
         sagemaker_role_arn = f"arn:aws:iam::{account_id}:role/{default_role_name}"
         derived_role = True
 
@@ -167,8 +176,8 @@ def main():
         sagemaker_s3_bucket = default_bucket_name
         derived_bucket = True
 
-    feature_group_mentor = f"{project}-{environment}-mentor-activity"
-    feature_group_blockchain = f"{project}-{environment}-blockchain-events"
+    feature_group_mentor = f"{project_prefix}-{environment}-mentor-activity"
+    feature_group_blockchain = f"{project_prefix}-{environment}-blockchain-events"
 
     # 1. Check AWS Connectivity & Credentials
     credentials_active = False
@@ -230,7 +239,9 @@ def main():
         s3_ok, s3_msg = False, "S3 bucket definition not verified"
         if s3_tf_path.exists():
             content = s3_tf_path.read_text()
-            if 'sagemaker    = "${var.project}-${var.environment}-sagemaker"' in content or 'resource "aws_s3_bucket" "sagemaker"' in content:
+            # Match using our module-level constant for flexible whitespace, or raw resource
+            s3_match = re.search(S3_BUCKET_TF_REGEX, content)
+            if s3_match or 'resource "aws_s3_bucket" "sagemaker"' in content:
                 s3_ok = True
                 s3_msg = f"[Dry-Run Check Passed] SageMaker S3 Bucket is declared in {s3_tf_path.name}"
             else:
@@ -264,11 +275,13 @@ def main():
         verification_results["FEATURE_GROUP_BLOCKCHAIN"] = (fg_bc_ok, fg_bc_msg)
 
     # 3. Check and generate secrets/API keys
+    secret_auto_generated = False
     if not mentor_api_secret:
         logger.warning("MENTOR_API_SECRET is not configured!")
         new_secret = secrets.token_hex(32)
-        logger.info(f"Auto-generated a secure MENTOR_API_SECRET: {new_secret}")
+        logger.info("Auto-generated a secure MENTOR_API_SECRET: *** [AUTO-GENERATED]")
         mentor_api_secret = new_secret
+        secret_auto_generated = True
     else:
         logger.info("MENTOR_API_SECRET is set and active.")
 
@@ -296,18 +309,20 @@ def main():
         
     print("-"*80)
     print("ENVIRONMENT CONFIGURATION:")
-    print(f"  PROJECT PREFIX:      {project}")
+    print(f"  PROJECT PREFIX:      {project_prefix}")
     print(f"  ENVIRONMENT:         {environment}")
     print(f"  AWS_REGION:          {aws_region}")
     print(f"  SAGEMAKER_ROLE_ARN:  {sagemaker_role_arn}")
     print(f"  SAGEMAKER_S3_BUCKET: {sagemaker_s3_bucket}")
-    print(f"  MENTOR_API_SECRET:   {mentor_api_secret[:10]}...[REDACTED]")
-    print(f"  NVIDIA_API_KEY:      {nvidia_api_key[:10]}...[REDACTED]" if nvidia_api_key else "  NVIDIA_API_KEY:      None")
-    print(f"  HF_TOKEN:            {hf_token[:10]}...[REDACTED]" if hf_token else "  HF_TOKEN:            None")
+    print(f"  MENTOR_API_SECRET:   *** [SET]" if mentor_api_secret else "  MENTOR_API_SECRET:   None")
+    print(f"  NVIDIA_API_KEY:      *** [SET]" if nvidia_api_key else "  NVIDIA_API_KEY:      None")
+    print(f"  HF_TOKEN:            *** [SET]" if hf_token else "  HF_TOKEN:            None")
     print("="*80 + "\n")
 
-    # 5. Write `.env` file if requested
-    if args.write_dotenv or not Path(dotenv_path).exists():
+    # 5. Write `.env` file if requested or if a secret was dynamically auto-generated
+    if args.write_dotenv or secret_auto_generated or not Path(dotenv_path).exists():
+        if secret_auto_generated and not args.write_dotenv:
+            logger.info("Auto-enabling write-dotenv to persist the newly auto-generated MENTOR_API_SECRET.")
         logger.info(f"Writing updated configuration to {dotenv_path}...")
         
         # Read existing file content if it exists
@@ -329,10 +344,16 @@ def main():
             
         new_lines = []
         for line in existing_lines:
+            # Check if this line is a comment or empty
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith("#"):
+                new_lines.append(line)
+                continue
+                
             # Check if this line is one of our keys
             matched_key = None
             for key in keys_to_update:
-                if line.startswith(f"{key}="):
+                if stripped_line.startswith(f"{key}="):
                     matched_key = key
                     break
             
