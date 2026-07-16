@@ -124,8 +124,8 @@ def check_teacher_connectivity(api_key: str) -> tuple[bool, str]:
     
     try:
         # Instantiating the OpenAI client with a client-level timeout.
-        # A 15-second timeout is recommended in code reviews to comfortably allow for 
-        # any transient API network latency while ensuring connectivity checks do not hang.
+        # A 15-second timeout allows for transient API network latency while 
+        # preventing connectivity checks from hanging indefinitely.
         client = OpenAI(
             base_url="https://integrate.api.nvidia.com/v1",
             api_key=api_key,
@@ -189,23 +189,27 @@ def run_live_test(api_key: str, bucket_name: str, region: str) -> bool:
         record = to_training_record(pair["question"], pair["answer"], system_prompt=SYSTEM_PROMPT_SHRI)
         
         # Save to local file using a unique temporary directory
-        temp_dir_str = tempfile.mkdtemp()
-        test_dir = Path(temp_dir_str)
+        test_dir = Path(tempfile.mkdtemp())
         local_file = test_dir / "test_train.jsonl"
-        with open(local_file, "w", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        try:
+            with open(local_file, "w", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                
+            logger.info(f"Wrote local test dataset to {local_file}")
             
-        logger.info(f"Wrote local test dataset to {local_file}")
-        
-        # Upload to S3
-        test_s3_key = "mentor-training/test-data/train.jsonl"
-        s3_uri = upload_to_s3(str(local_file), bucket_name, test_s3_key, region)
-        logger.info(f"Integration test S3 upload successful: {s3_uri}")
-        
-        # Cleanup local test file and directory
-        if local_file.exists():
-            local_file.unlink()
-        test_dir.rmdir()
+            # Upload to S3
+            test_s3_key = "mentor-training/test-data/train.jsonl"
+            s3_uri = upload_to_s3(str(local_file), bucket_name, test_s3_key, region)
+            logger.info(f"Integration test S3 upload successful: {s3_uri}")
+        finally:
+            # Robustly cleanup temporary file and directory
+            try:
+                if local_file.exists():
+                    local_file.unlink()
+                if test_dir.exists():
+                    test_dir.rmdir()
+            except Exception as cleanup_err:
+                logger.warning(f"Failed to cleanup temporary test directory/file: {cleanup_err}")
             
         return True
     except Exception as e:
