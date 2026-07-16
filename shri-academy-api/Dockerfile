@@ -2,7 +2,10 @@
 # Build context: shri-academy-api/
 # Output: Python 3.11 slim image running FastAPI + uvicorn on PORT 8000
 #
+# Supports Async Kafka integration (aiokafka) and Async SageMaker integration (aioboto3)
+#
 # ChromaDB downloads the all-MiniLM-L6-v2 ONNX model on first startup.
+
 # The model is baked into this image during build (pre-warmed) so ECS tasks
 # start cleanly without hitting S3 cold-start delay.
 #
