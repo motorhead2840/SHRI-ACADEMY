@@ -26,6 +26,19 @@ try:
 except ImportError:
     _dotenv_available = False
     dotenv_path = str(Path(__file__).parent.parent.parent / ".env")
+    # Manual dotenv parsing fallback when python-dotenv is not installed
+    p = Path(dotenv_path)
+    if p.exists():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, val = line.split("=", 1)
+                val = val.strip()
+                if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                    val = val[1:-1]
+                os.environ[key.strip()] = val
 
 try:
     import boto3
