@@ -302,3 +302,66 @@ async def get_status(_: bool = Depends(_require_mentor)):
         endpoint_status=endpoint_status,
         eval_mode_active=eval_mode and bool(endpoint_name),
     )
+
+
+# ── Combined Async Flow Route ───────────────────────────────────────────────────
+
+class AsyncQueryRequest(BaseModel):
+    query: str
+    user_id: str
+    topic: Optional[str] = "shri-mentor-events"
+
+
+class AsyncQueryResponse(BaseModel):
+    response: Optional[str]
+    status: str
+
+
+@router.post("/async-query", response_model=AsyncQueryResponse)
+async def async_query(req: AsyncQueryRequest):
+    """
+    Example combined async flow:
+    1. Publishes a query event asynchronously to Confluent Cloud (Kafka)
+    2. Invokes the SageMaker endpoint asynchronously using aioboto3
+    3. Publishes a response event asynchronously to Confluent Cloud (Kafka)
+    """
+    from async_kafka_utils import publish_event_async
+    from sagemaker_client import invoke_shri_mentor_async
+    import time
+
+    # Step 1: Publish incoming query event to Kafka
+    start_time = time.time()
+    query_event = {
+        "event_type": "query_received",
+        "user_id": req.user_id,
+        "query": req.query,
+        "timestamp": start_time,
+    }
+    try:
+        await publish_event_async(req.topic, query_event)
+    except Exception as e:
+        log.warning(f"Failed to publish query_received event to Kafka: {e}")
+
+    # Step 2: Invoke SageMaker asynchronously
+    response_text = await invoke_shri_mentor_async(req.query, req.user_id)
+
+    # Step 3: Publish response generated event to Kafka
+    end_time = time.time()
+    response_event = {
+        "event_type": "response_generated",
+        "user_id": req.user_id,
+        "query": req.query,
+        "response": response_text,
+        "latency_seconds": end_time - start_time,
+        "timestamp": end_time,
+    }
+    try:
+        await publish_event_async(req.topic, response_event)
+    except Exception as e:
+        log.warning(f"Failed to publish response_generated event to Kafka: {e}")
+
+    return AsyncQueryResponse(
+        response=response_text,
+        status="success" if response_text else "failed"
+    )
+
