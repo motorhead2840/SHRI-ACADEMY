@@ -154,11 +154,11 @@ def main():
     nvidia_api_key = os.environ.get("NVIDIA_API_KEY") or os.environ.get("OPENAI_API_KEY")
     hf_token = os.environ.get("HF_TOKEN")
 
-    # If sagemaker_role_arn or sagemaker_s3_bucket are not set, derive from defaults
-    default_role_name = f"{project_prefix}-{environment}-sagemaker"
-    default_bucket_name = f"{project_prefix}-{environment}-sagemaker"
+    # If sagemaker_role_arn or sagemaker_s3_bucket are not set, derive from fallback values
+    fallback_role_name = f"{project_prefix}-{environment}-sagemaker"
+    fallback_bucket_name = f"{project_prefix}-{environment}-sagemaker"
     
-    derived_role = False
+    role_was_derived = False
     if not sagemaker_role_arn:
         # We need an account ID to derive a full ARN, so let's check if boto3 can tell us, else we use placeholder
         account_id = PLACEHOLDER_ACCOUNT_ID
@@ -168,13 +168,13 @@ def main():
                 account_id = sts.get_caller_identity()["Account"]
         except (NoCredentialsError, ClientError):
             logger.info("Could not retrieve AWS caller identity dynamically (NoCredentials or ClientError).")
-        sagemaker_role_arn = f"arn:aws:iam::{account_id}:role/{default_role_name}"
-        derived_role = True
+        sagemaker_role_arn = f"arn:aws:iam::{account_id}:role/{fallback_role_name}"
+        role_was_derived = True
 
-    derived_bucket = False
+    bucket_was_derived = False
     if not sagemaker_s3_bucket:
-        sagemaker_s3_bucket = default_bucket_name
-        derived_bucket = True
+        sagemaker_s3_bucket = fallback_bucket_name
+        bucket_was_derived = True
 
     feature_group_mentor = f"{project_prefix}-{environment}-mentor-activity"
     feature_group_blockchain = f"{project_prefix}-{environment}-blockchain-events"
@@ -365,8 +365,10 @@ def main():
                 new_lines.append(line)
                 
         # Append remaining keys that were not found in existing lines
-        for key, val in keys_to_update.items():
-            new_lines.append(f"{key}={val}")
+        if keys_to_update:
+            new_lines.append("\n# Auto-generated SageMaker and Mentor API environment variables")
+            for key, val in keys_to_update.items():
+                new_lines.append(f"{key}={val}")
             
         # Write back to file
         Path(dotenv_path).write_text("\n".join(new_lines) + "\n")
