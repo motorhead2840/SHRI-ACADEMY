@@ -129,7 +129,6 @@ async def lifespan(app: FastAPI):
         log.error(f"Lifespan: Failed to stop async Kafka producer during shutdown: {e}")
 
 
-
 # ─── FastAPI App ────────────────────────────────────────────────────────────────
 app = FastAPI(title="Shri Academy API", lifespan=lifespan)
 

@@ -38,7 +38,7 @@ try:
 except ImportError:
     boto3 = None  # type: ignore
     _boto3_available = False
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 log = logging.getLogger(__name__)
 
@@ -312,9 +312,16 @@ async def get_status(_: bool = Depends(_require_mentor)):
 # ── Combined Async Flow Route ───────────────────────────────────────────────────
 
 class AsyncQueryRequest(BaseModel):
-    query: str
-    user_id: str
-    topic: Optional[str] = "shri-mentor-events"
+    query: str = Field(..., min_length=1, max_length=4000)
+    user_id: str = Field(..., min_length=1, max_length=128)
+    topic: str = Field(default="shri-mentor-events")
+
+    @field_validator("topic")
+    @classmethod
+    def validate_topic(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Kafka topic cannot be empty or blank")
+        return v.strip()
 
 
 class AsyncQueryResponse(BaseModel):
@@ -364,7 +371,6 @@ async def async_query(req: AsyncQueryRequest):
         await publish_event_async(req.topic, response_event)
     except Exception as e:
         log.warning(f"Failed to publish response_generated event to Kafka: {e}")
-
 
     return AsyncQueryResponse(
         response=response_text,

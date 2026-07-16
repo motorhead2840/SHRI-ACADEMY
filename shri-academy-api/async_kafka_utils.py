@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import json
 import logging
@@ -8,7 +9,7 @@ from aiokafka import AIOKafkaProducer
 log = logging.getLogger(__name__)
 
 class AsyncKafkaProducerSingleton:
-    _instance: Optional['AsyncKafkaProducerSingleton'] = None
+    _instance: Optional[AsyncKafkaProducerSingleton] = None
     _producer: Optional[AIOKafkaProducer] = None
 
     def __new__(cls):
