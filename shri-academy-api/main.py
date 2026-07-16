@@ -10,6 +10,9 @@ import os
 import logging
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from typing import Optional
 
 import chromadb
