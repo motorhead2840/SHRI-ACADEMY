@@ -10,6 +10,7 @@ import sys
 import json
 import logging
 import argparse
+import tempfile
 from pathlib import Path
 
 # Ensure parent directory is in sys.path
@@ -122,6 +123,9 @@ def check_teacher_connectivity(api_key: str) -> tuple[bool, str]:
         return False, "NVIDIA_API_KEY is not configured"
     
     try:
+        # Instantiating the OpenAI client with a client-level timeout.
+        # A 15-second timeout is recommended in code reviews to comfortably allow for 
+        # any transient API network latency while ensuring connectivity checks do not hang.
         client = OpenAI(
             base_url="https://integrate.api.nvidia.com/v1",
             api_key=api_key,
@@ -129,7 +133,6 @@ def check_teacher_connectivity(api_key: str) -> tuple[bool, str]:
         )
         # Attempt a very lightweight model check or a minimal chat completion
         # We target nvidia/llama-3.1-nemotron-70b-instruct as specified in generate_data.py
-        # Use a short timeout of 15 seconds to avoid blocking
         logger.info("Testing connectivity to NVIDIA NIM endpoint...")
         resp = client.chat.completions.create(
             model="nvidia/llama-3.1-nemotron-70b-instruct",
@@ -185,8 +188,8 @@ def run_live_test(api_key: str, bucket_name: str, region: str) -> bool:
         # Format record
         record = to_training_record(pair["question"], pair["answer"], system_prompt=SYSTEM_PROMPT_SHRI)
         
-        # Save to local file
-        test_dir = Path("/tmp/mentor-training-test")
+        # Save to local file using a cross-platform temp directory
+        test_dir = Path(tempfile.gettempdir()) / "mentor-training-test"
         test_dir.mkdir(parents=True, exist_ok=True)
         local_file = test_dir / "test_train.jsonl"
         with open(local_file, "w", encoding="utf-8") as f:
