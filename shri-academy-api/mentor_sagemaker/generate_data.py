@@ -21,6 +21,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -151,6 +152,7 @@ def main():
     parser.add_argument("--region", default=os.environ.get("AWS_REGION", "us-east-1"))
     parser.add_argument("--output-dir", default="/tmp/mentor-training", help="Local output directory")
     parser.add_argument("--mentor-type", choices=["shri", "saraswathi", "all"], default="shri", help="Mentor type")
+    parser.add_argument("--ocw-data-path", default=None, help="Optional path to curated SFT/OCW JSONL dataset to incorporate")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -184,6 +186,32 @@ def main():
         all_records.extend(records)
         log.info(f"  → {len(records)} records (total so far: {len(all_records)})")
         time.sleep(0.5)  # gentle rate-limit pause
+
+    # Load and merge any pre-curated OCW dataset
+    ocw_records_count = 0
+    if args.ocw_data_path and os.path.exists(args.ocw_data_path):
+        log.info(f"Merging curated OCW dataset from '{args.ocw_data_path}'...")
+        try:
+            with open(args.ocw_data_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    stripped = line.strip()
+                    if stripped:
+                        record = json.loads(stripped)
+                        # Precise content safety scan (enforce Khan Academy exclusion)
+                        is_safe = True
+                        for msg in record.get("messages", []):
+                            content = msg.get("content", "")
+                            if re.search(r"\bkhan\s*academy\b", content, re.IGNORECASE):
+                                is_safe = False
+                                break
+                        if not is_safe:
+                            log.warning("Detected commercial provider in OCW input during merge. Skipping record.")
+                            continue
+                        all_records.append(record)
+                        ocw_records_count += 1
+            log.info(f"Successfully merged {ocw_records_count} high-quality OCW records.")
+        except Exception as e:
+            log.error(f"Failed to merge OCW dataset: {e}")
 
     if not all_records:
         log.error("No training records generated — aborting")
