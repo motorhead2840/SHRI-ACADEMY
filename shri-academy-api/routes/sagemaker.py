@@ -74,6 +74,7 @@ class GenerateDataRequest(BaseModel):
     pairs_per_chunk: int = 8
     s3_prefix: str = "mentor-training/data"
     mentor_type: str = "shri"
+    ocw_data_path: Optional[str] = None
 
 
 class GenerateDataResponse(BaseModel):
@@ -145,6 +146,8 @@ async def generate_data(
         "--region", region,
         "--mentor-type", req.mentor_type,
     ]
+    if req.ocw_data_path:
+        cmd.extend(["--ocw-data-path", req.ocw_data_path])
 
     log.info(f"Launching data generation: {' '.join(cmd)}")
     try:
